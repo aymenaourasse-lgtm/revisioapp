@@ -13,13 +13,19 @@ export default function Home() {
 
       <div className="flex gap-6">
 
-        <button className="bg-white text-black px-8 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition">
-          Espace Étudiant
-        </button>
+        <a
+  href="/student"
+  className="bg-white text-black px-8 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition"
+>
+  Espace Étudiant
+</a>
 
-        <button className="border border-white px-8 py-4 rounded-2xl font-semibold hover:bg-white hover:text-black transition">
-          Espace Professeur
-        </button>
+<a
+  href="/teacher"
+  className="border border-white px-8 py-4 rounded-2xl font-semibold hover:bg-white hover:text-black transition"
+>
+  Espace Professeur
+</a>
 
       </div>
 
