@@ -2,34 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, signInWithGoogle } from "../auth";
-import { doc, getDoc } from "firebase/firestore";
+import { signUp, signInWithGoogle } from "../auth";
+import { doc, setDoc } from "firebase/firestore";
 import { db } from "../firestore";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"student" | "teacher">("student");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const redirectByRole = async (uid: string) => {
-    const snap = await getDoc(doc(db, "users", uid));
-    if (snap.exists() && snap.data().role === "teacher") {
-      router.push("/teacher");
-    } else {
-      router.push("/student");
-    }
-  };
-
-  const handleLogin = async () => {
+  const handleSignup = async () => {
     setError("");
     setLoading(true);
     try {
-      const result = await signIn(email, password);
-      await redirectByRole(result.user.uid);
+      const result = await signUp(email, password);
+      await setDoc(doc(db, "users", result.user.uid), {
+        email,
+        role,
+        createdAt: new Date(),
+      });
+      router.push(role === "student" ? "/student" : "/teacher");
     } catch (e: any) {
-      setError("Email ou mot de passe incorrect.");
+      setError("Erreur lors de l'inscription. Vérifie ton email et mot de passe.");
     }
     setLoading(false);
   };
@@ -37,7 +34,12 @@ export default function LoginPage() {
   const handleGoogle = async () => {
     try {
       const result = await signInWithGoogle();
-      await redirectByRole(result.user.uid);
+      await setDoc(doc(db, "users", result.user.uid), {
+        email: result.user.email,
+        role,
+        createdAt: new Date(),
+      }, { merge: true });
+      router.push(role === "student" ? "/student" : "/teacher");
     } catch (e: any) {
       setError("Erreur avec Google.");
     }
@@ -47,9 +49,32 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#0f0f1a] flex items-center justify-center">
       <div className="bg-[#111827] p-8 rounded-2xl w-full max-w-md flex flex-col gap-4">
         <h1 className="text-blue-400 text-2xl font-bold text-center">Révisio IA</h1>
-        <p className="text-gray-400 text-center text-sm">Connecte-toi à ton compte</p>
+        <p className="text-gray-400 text-center text-sm">Crée ton compte</p>
 
         {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setRole("student")}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium ${
+              role === "student"
+                ? "bg-blue-600 text-white"
+                : "bg-[#1e293b] text-gray-400"
+            }`}
+          >
+            Etudiant
+          </button>
+          <button
+            onClick={() => setRole("teacher")}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium ${
+              role === "teacher"
+                ? "bg-blue-600 text-white"
+                : "bg-[#1e293b] text-gray-400"
+            }`}
+          >
+            Enseignant
+          </button>
+        </div>
 
         <input
           type="email"
@@ -60,19 +85,19 @@ export default function LoginPage() {
         />
         <input
           type="password"
-          placeholder="Mot de passe"
+          placeholder="Mot de passe (min. 6 caractères)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+          onKeyDown={(e) => e.key === "Enter" && handleSignup()}
           className="bg-[#1e293b] rounded-xl px-4 py-3 text-sm outline-none text-white"
         />
 
         <button
-          onClick={handleLogin}
+          onClick={handleSignup}
           disabled={loading}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-xl py-3 text-sm font-medium"
         >
-          {loading ? "Connexion..." : "Se connecter"}
+          {loading ? "Inscription..." : "Créer mon compte"}
         </button>
 
         <div className="flex items-center gap-2">
@@ -90,9 +115,9 @@ export default function LoginPage() {
         </button>
 
         <p className="text-gray-500 text-sm text-center">
-          Pas de compte ?{" "}
-          <a href="/signup" className="text-blue-400 hover:underline">
-            S'inscrire
+          Déjà un compte ?{" "}
+          <a href="/login" className="text-blue-400 hover:underline">
+            Se connecter
           </a>
         </p>
       </div>
