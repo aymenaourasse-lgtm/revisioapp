@@ -23,8 +23,10 @@ export default function StudentPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [showFiche, setShowFiche] = useState(false);
   const [quizSubject, setQuizSubject] = useState("");
   const [quizNum, setQuizNum] = useState("5");
+  const [ficheSubject, setFicheSubject] = useState("");
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -86,12 +88,16 @@ export default function StudentPage() {
     if ((!text.trim() && !imageBase64) || !currentId) return;
     const userMsg: Message = {
       role: "user",
-      content: mode === "quiz" ? `Quiz sur : ${subject ?? "mes notes"} (${numQuestions} questions)` : imageBase64 && !text.trim() ? "Image envoyée — analyse cette image" : text,
+      content: mode === "quiz" ? `Quiz sur : ${subject ?? "mes notes"} (${numQuestions} questions)`
+        : mode === "fiche" ? `Fiche de révision : ${subject ?? "mes notes"}`
+        : imageBase64 && !text.trim() ? "Image envoyée — analyse cette image"
+        : text,
     };
     const updated = [...messages, userMsg];
     setMessages(updated); setInput(""); setLoading(true);
     const body: any = { messages: updated };
     if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; }
+    if (mode === "fiche") { body.mode = "fiche"; body.subject = subject; }
     if (fileContent) body.fileContent = fileContent;
     if (imageBase64) { body.imageBase64 = imageBase64; setImageBase64(null); setImagePreview(null); }
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -109,6 +115,13 @@ export default function StudentPage() {
     setShowQuiz(false);
     await handleSend("quiz", "quiz", quizSubject || "mes notes", quizNum);
     setQuizSubject("");
+  };
+
+  const handleGenerateFiche = async () => {
+    if (!currentId) return;
+    setShowFiche(false);
+    await handleSend("fiche", "fiche", ficheSubject || "mes notes");
+    setFicheSubject("");
   };
 
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
@@ -129,33 +142,25 @@ export default function StudentPage() {
             </div>
           </div>
         </div>
-
         <div className="p-3">
           <button onClick={handleNewChat} className="w-full bg-blue-600 hover:bg-blue-500 transition-colors rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nouveau chat
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-0.5">
-          {conversations.length === 0 && (
-            <p className="text-gray-600 text-xs text-center mt-6">Aucune conversation</p>
-          )}
+          {conversations.length === 0 && <p className="text-gray-600 text-xs text-center mt-6">Aucune conversation</p>}
           {conversations.map((c) => (
-            <button key={c.id}
-              onClick={() => { setCurrentId(c.id); setMessages(c.messages); }}
+            <button key={c.id} onClick={() => { setCurrentId(c.id); setMessages(c.messages); }}
               className={`w-full text-left text-sm px-3 py-2 rounded-lg truncate transition-colors flex items-center gap-2 ${currentId === c.id ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 opacity-60"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span className="truncate">{c.title}</span>
             </button>
           ))}
         </div>
-
         <div className="p-3 border-t border-gray-800 flex items-center gap-3">
           <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">{initials}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-300 truncate">{userEmail}</p>
-          </div>
+          <div className="flex-1 min-w-0"><p className="text-xs text-gray-300 truncate">{userEmail}</p></div>
           <button onClick={async () => { await logOut(); router.push("/login"); }} title="Se déconnecter" className="text-gray-600 hover:text-red-400 transition-colors">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </button>
@@ -164,12 +169,8 @@ export default function StudentPage() {
 
       {/* ── Zone principale ── */}
       <main className="flex flex-col flex-1 bg-[#0f0f1a]">
-
-        {/* Header */}
         <div className="border-b border-gray-800 px-6 py-3 flex items-center justify-between h-12">
-          <p className="text-sm text-gray-400">
-            {currentId ? conversations.find(c => c.id === currentId)?.title ?? "Conversation" : "Sélectionne ou crée un chat"}
-          </p>
+          <p className="text-sm text-gray-400">{currentId ? conversations.find(c => c.id === currentId)?.title ?? "Conversation" : "Sélectionne ou crée un chat"}</p>
           {fileName && (
             <div className="flex items-center gap-2 bg-blue-950 border border-blue-800 px-3 py-1 rounded-lg">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -179,7 +180,6 @@ export default function StudentPage() {
           )}
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
           {!currentId && (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center h-full">
@@ -188,14 +188,11 @@ export default function StudentPage() {
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-200">Bienvenue sur Révisio IA</h2>
-                <p className="text-gray-500 text-sm mt-1 max-w-xs">Crée un nouveau chat pour commencer à poser tes questions, générer un quiz ou analyser tes notes.</p>
+                <p className="text-gray-500 text-sm mt-1 max-w-xs">Pose tes questions, génère un quiz, crée une fiche de révision ou analyse tes notes.</p>
               </div>
-              <button onClick={handleNewChat} className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
-                Créer un chat
-              </button>
+              <button onClick={handleNewChat} className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-sm font-medium transition-colors">Créer un chat</button>
             </div>
           )}
-
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${m.role === "user" ? "bg-blue-600" : "bg-gray-700"}`}>
@@ -206,7 +203,6 @@ export default function StudentPage() {
               </div>
             </div>
           ))}
-
           {loading && (
             <div className="flex gap-3">
               <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R</div>
@@ -220,7 +216,6 @@ export default function StudentPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Aperçu image */}
         {imagePreview && (
           <div className="px-6 pb-2 flex items-center gap-3">
             <img src={imagePreview} alt="preview" className="h-14 w-14 object-cover rounded-lg border border-gray-700" />
@@ -229,12 +224,9 @@ export default function StudentPage() {
           </div>
         )}
 
-        {/* Barre de saisie */}
         <div className="px-6 pb-6 pt-2">
           <div className="bg-[#1a1a2e] border border-gray-700 rounded-2xl flex flex-col overflow-hidden focus-within:border-blue-600 transition-colors">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+            <input value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder={currentId ? "Pose ta question à Révisio IA…" : "Crée un nouveau chat d'abord"}
               disabled={!currentId}
@@ -254,12 +246,13 @@ export default function StudentPage() {
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   Quiz
                 </button>
+                <button onClick={() => setShowFiche(true)} className="px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors text-xs font-medium flex items-center gap-1.5">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  Fiche
+                </button>
               </div>
-              <button
-                onClick={() => handleSend()}
-                disabled={!currentId || loading || (!input.trim() && !imageBase64)}
-                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2"
-              >
+              <button onClick={() => handleSend()} disabled={!currentId || loading || (!input.trim() && !imageBase64)}
+                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2">
                 Envoyer
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
@@ -278,18 +271,10 @@ export default function StudentPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            {fileName && (
-              <div className="text-blue-300 text-xs bg-blue-950 border border-blue-800 px-3 py-2 rounded-lg flex items-center gap-2">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-                Basé sur : {fileName}
-              </div>
-            )}
-            <input
-              value={quizSubject}
-              onChange={(e) => setQuizSubject(e.target.value)}
+            {fileName && <div className="text-blue-300 text-xs bg-blue-950 border border-blue-800 px-3 py-2 rounded-lg">Basé sur : {fileName}</div>}
+            <input value={quizSubject} onChange={(e) => setQuizSubject(e.target.value)}
               placeholder={fileName ? "Sujet précis (optionnel)" : "Matière (ex: la photosynthèse)"}
-              className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors"
-            />
+              className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
             <div className="flex flex-col gap-1.5">
               <label className="text-gray-400 text-xs font-medium">Nombre de questions</label>
               <select value={quizNum} onChange={(e) => setQuizNum(e.target.value)} className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none">
@@ -300,9 +285,29 @@ export default function StudentPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
-              <button onClick={handleGenerateQuiz} disabled={!currentId} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">
-                Générer
+              <button onClick={handleGenerateQuiz} disabled={!currentId} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">Générer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Fiche ── */}
+      {showFiche && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Créer une fiche de révision</h2>
+              <button onClick={() => setShowFiche(false)} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-700">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
+            </div>
+            {fileName && <div className="text-blue-300 text-xs bg-blue-950 border border-blue-800 px-3 py-2 rounded-lg">Basé sur : {fileName}</div>}
+            <input value={ficheSubject} onChange={(e) => setFicheSubject(e.target.value)}
+              placeholder={fileName ? "Sujet précis (optionnel)" : "Matière (ex: la photosynthèse)"}
+              className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
+            <div className="flex gap-2">
+              <button onClick={() => setShowFiche(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
+              <button onClick={handleGenerateFiche} disabled={!currentId} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">Créer</button>
             </div>
             {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
           </div>
@@ -310,4 +315,4 @@ export default function StudentPage() {
       )}
     </div>
   );
-} 
+}

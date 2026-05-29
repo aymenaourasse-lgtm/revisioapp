@@ -28,6 +28,33 @@ Reponse correcte : [lettre]
 Genere exactement ${numQuestions} questions. Rien d'autre.`;
   }
 
+  if (mode === "fiche") {
+    const base = fileContent ? "le contenu des notes fourni" : subject;
+    systemPrompt = `Tu es Revisio IA. Genere une fiche de revision complete sur : ${base}.
+
+Format exact a respecter :
+
+FICHE DE REVISION : [TITRE EN MAJUSCULES]
+
+DEFINITION :
+[definition claire en 2-3 phrases]
+
+POINTS CLES :
+- [point 1]
+- [point 2]
+- [point 3]
+- [point 4]
+- [point 5]
+
+A RETENIR :
+[resume de 3-4 phrases essentielles]
+
+MOTS CLES :
+[mot1], [mot2], [mot3], [mot4], [mot5]
+
+Genere uniquement la fiche, rien d'autre.`;
+  }
+
   let apiMessages: any[];
 
   if (imageBase64) {
@@ -36,21 +63,15 @@ Genere exactement ${numQuestions} questions. Rien d'autre.`;
       {
         role: "user",
         content: [
-          {
-            type: "image_url",
-            image_url: { url: imageBase64 },
-          },
-          {
-            type: "text",
-            text: messages[messages.length - 1]?.content ?? "Explique ce que tu vois sur cette image.",
-          },
+          { type: "image_url", image_url: { url: imageBase64 } },
+          { type: "text", text: messages[messages.length - 1]?.content ?? "Explique ce que tu vois sur cette image." },
         ],
       },
     ];
-  } else if (mode === "quiz") {
+  } else if (mode === "quiz" || mode === "fiche") {
     apiMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Genere un quiz" },
+      { role: "user", content: mode === "quiz" ? "Genere un quiz" : "Genere une fiche de revision" },
     ];
   } else {
     apiMessages = [
