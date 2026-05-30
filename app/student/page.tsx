@@ -202,12 +202,26 @@ export default function StudentPage() {
             </div>
           </div>
         </div>
+
+        {/* Navigation */}
+        <div className="p-3 flex flex-col gap-1 border-b border-gray-800">
+          <button onClick={() => router.push("/student/flashcards")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Flashcards
+          </button>
+          <button onClick={() => router.push("/student/profile")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profil
+          </button>
+        </div>
+
         <div className="p-3">
           <button onClick={handleNewChat} className="w-full bg-blue-600 hover:bg-blue-500 transition-colors rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nouveau chat
           </button>
         </div>
+
         <div className="flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-0.5">
           {conversations.length === 0 && <p className="text-gray-600 text-xs text-center mt-6">Aucune conversation</p>}
           {conversations.map((c) => (
