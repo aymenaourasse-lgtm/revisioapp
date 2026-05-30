@@ -30,6 +30,7 @@ export default function StudentPage() {
   const [loading, setLoading] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [showFiche, setShowFiche] = useState(false);
+  const [showResume, setShowResume] = useState(false);
   const [quizSubject, setQuizSubject] = useState("");
   const [quizNum, setQuizNum] = useState("5");
   const [ficheSubject, setFicheSubject] = useState("");
@@ -66,7 +67,6 @@ export default function StudentPage() {
       const q = query(collection(db, "conversations"), where("userId", "==", userId), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
       setConversations(snap.docs.map((d) => ({ id: d.id, title: d.data().title, messages: d.data().messages ?? [] })));
-
       const userDoc = await getDoc(doc(db, "users", userId));
       if (userDoc.exists()) {
         const data = userDoc.data();
@@ -84,17 +84,11 @@ export default function StudentPage() {
 
   const checkAndIncrementCount = async () => {
     if (isPro) return true;
-    if (messageCount >= FREE_LIMIT) {
-      setShowLimitModal(true);
-      return false;
-    }
+    if (messageCount >= FREE_LIMIT) { setShowLimitModal(true); return false; }
     const today = new Date().toDateString();
     const newCount = messageCount + 1;
     setMessageCount(newCount);
-    await setDoc(doc(db, "users", userId!), {
-      messageCount: newCount,
-      lastMessageDate: today,
-    }, { merge: true });
+    await setDoc(doc(db, "users", userId!), { messageCount: newCount, lastMessageDate: today }, { merge: true });
     return true;
   };
 
@@ -140,15 +134,14 @@ export default function StudentPage() {
 
   const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string) => {
     const text = overrideInput ?? input;
-    if ((!text.trim() && !imageBase64) || !currentId) return;
-
+    if ((!text.trim() && !imageBase64 && mode !== "resume") || !currentId) return;
     const canSend = await checkAndIncrementCount();
     if (!canSend) return;
-
     const userMsg: Message = {
       role: "user",
       content: mode === "quiz" ? `Quiz sur : ${subject ?? "mes notes"} (${numQuestions} questions)`
         : mode === "fiche" ? `Fiche de révision : ${subject ?? "mes notes"}`
+        : mode === "resume" ? `Résumé du document : ${fileName ?? "mes notes"}`
         : imageBase64 && !text.trim() ? "Image envoyée — analyse cette image"
         : text,
     };
@@ -157,6 +150,7 @@ export default function StudentPage() {
     const body: any = { messages: updated };
     if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; }
     if (mode === "fiche") { body.mode = "fiche"; body.subject = subject; }
+    if (mode === "resume") { body.mode = "resume"; }
     if (fileContent) body.fileContent = fileContent;
     if (imageBase64) { body.imageBase64 = imageBase64; setImageBase64(null); setImagePreview(null); }
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -183,13 +177,17 @@ export default function StudentPage() {
     setFicheSubject("");
   };
 
+  const handleGenerateResume = async () => {
+    setShowResume(false);
+    await handleSend("resume", "resume");
+  };
+
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
   const remaining = FREE_LIMIT - messageCount;
 
   return (
     <div className="flex h-screen bg-[#0d0d14] text-white" style={{fontFamily: "system-ui, sans-serif"}}>
 
-      {/* ── Sidebar ── */}
       <aside className="w-64 bg-[#0d0d14] border-r border-gray-800 flex flex-col">
         <div className="p-5 border-b border-gray-800">
           <div className="flex items-center gap-2">
@@ -203,7 +201,6 @@ export default function StudentPage() {
           </div>
         </div>
 
-        {/* Navigation */}
         <div className="p-3 flex flex-col gap-1 border-b border-gray-800">
           <button onClick={() => router.push("/student/flashcards")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -240,7 +237,7 @@ export default function StudentPage() {
                 </button>
               )}
               <button onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
-                className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded transition-all hover:text-red-400 ${currentId === c.id ? "text-blue-200" : "text-gray-600"}`} title="Supprimer">
+                className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded transition-all hover:text-red-400 ${currentId === c.id ? "text-blue-200" : "text-gray-600"}`}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
               </button>
             </div>
@@ -257,9 +254,7 @@ export default function StudentPage() {
               <div className="w-full bg-gray-700 rounded-full h-1.5">
                 <div className={`h-1.5 rounded-full transition-all ${remaining <= 3 ? "bg-red-500" : "bg-blue-500"}`} style={{width: `${(messageCount / FREE_LIMIT) * 100}%`}}></div>
               </div>
-              <button onClick={() => router.push("/pricing")} className="text-blue-400 text-xs hover:underline text-center">
-                Passer à Pro — illimité
-              </button>
+              <button onClick={() => router.push("/pricing")} className="text-blue-400 text-xs hover:underline text-center">Passer à Pro — illimité</button>
             </div>
           </div>
         )}
@@ -270,13 +265,12 @@ export default function StudentPage() {
             <p className="text-xs text-gray-300 truncate">{userEmail}</p>
             {isPro && <p className="text-xs text-blue-400">Pro</p>}
           </div>
-          <button onClick={async () => { await logOut(); router.push("/login"); }} title="Se déconnecter" className="text-gray-600 hover:text-red-400 transition-colors">
+          <button onClick={async () => { await logOut(); router.push("/login"); }} className="text-gray-600 hover:text-red-400 transition-colors">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </button>
         </div>
       </aside>
 
-      {/* ── Zone principale ── */}
       <main className="flex flex-col flex-1 bg-[#0f0f1a]">
         <div className="border-b border-gray-800 px-6 py-3 flex items-center justify-between h-12">
           <p className="text-sm text-gray-400">{currentId ? conversations.find(c => c.id === currentId)?.title ?? "Conversation" : "Sélectionne ou crée un chat"}</p>
@@ -339,16 +333,15 @@ export default function StudentPage() {
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder={currentId ? "Pose ta question à Révisio IA…" : "Crée un nouveau chat d'abord"}
               disabled={!currentId}
-              className="bg-transparent px-4 pt-4 pb-2 text-sm outline-none text-white placeholder-gray-600 disabled:opacity-50"
-            />
+              className="bg-transparent px-4 pt-4 pb-2 text-sm outline-none text-white placeholder-gray-600 disabled:opacity-50" />
             <div className="flex items-center justify-between px-3 pb-3">
               <div className="flex gap-1">
                 <input type="file" accept=".txt,.md,.csv" ref={fileRef} onChange={handleFileUpload} className="hidden" />
                 <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
-                <button onClick={() => fileRef.current?.click()} title="Uploader tes notes" className="p-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors">
+                <button onClick={() => fileRef.current?.click()} className="p-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 </button>
-                <button onClick={() => imageRef.current?.click()} title="Envoyer une photo" className="p-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors">
+                <button onClick={() => imageRef.current?.click()} className="p-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                 </button>
                 <button onClick={() => setShowQuiz(true)} className="px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors text-xs font-medium flex items-center gap-1.5">
@@ -356,8 +349,12 @@ export default function StudentPage() {
                   Quiz
                 </button>
                 <button onClick={() => setShowFiche(true)} className="px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors text-xs font-medium flex items-center gap-1.5">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                   Fiche
+                </button>
+                <button onClick={() => setShowResume(true)} className="px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors text-xs font-medium flex items-center gap-1.5">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="11" y2="18"/></svg>
+                  Résumé
                 </button>
                 <button onClick={() => router.push("/student/flashcards")} className="px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors text-xs font-medium flex items-center gap-1.5">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -374,7 +371,7 @@ export default function StudentPage() {
         </div>
       </main>
 
-      {/* ── Modal Limite ── */}
+      {/* Modal Limite */}
       {showLimitModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl text-center">
@@ -383,7 +380,7 @@ export default function StudentPage() {
             </div>
             <div>
               <h2 className="text-base font-semibold">Limite quotidienne atteinte</h2>
-              <p className="text-gray-400 text-sm mt-1">Tu as utilisé tes {FREE_LIMIT} messages gratuits aujourd'hui. Passe à Pro pour des messages illimités !</p>
+              <p className="text-gray-400 text-sm mt-1">Tu as utilisé tes {FREE_LIMIT} messages gratuits aujourd'hui.</p>
             </div>
             <div className="flex flex-col gap-2">
               <button onClick={() => router.push("/pricing")} className="bg-blue-600 hover:bg-blue-500 rounded-xl py-2.5 text-sm font-medium transition-colors">Passer à Pro →</button>
@@ -393,7 +390,7 @@ export default function StudentPage() {
         </div>
       )}
 
-      {/* ── Modal Quiz ── */}
+      {/* Modal Quiz */}
       {showQuiz && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
@@ -423,7 +420,7 @@ export default function StudentPage() {
         </div>
       )}
 
-      {/* ── Modal Fiche ── */}
+      {/* Modal Fiche */}
       {showFiche && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
@@ -440,6 +437,29 @@ export default function StudentPage() {
             <div className="flex gap-2">
               <button onClick={() => setShowFiche(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
               <button onClick={handleGenerateFiche} disabled={!currentId} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">Créer</button>
+            </div>
+            {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Résumé */}
+      {showResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">Résumé automatique</h2>
+              <button onClick={() => setShowResume(false)} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-700">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            {fileName
+              ? <div className="text-blue-300 text-xs bg-blue-950 border border-blue-800 px-3 py-2 rounded-lg">Basé sur : {fileName}</div>
+              : <p className="text-gray-400 text-sm">Upload d'abord un fichier avec le bouton 📄, puis clique Résumé.</p>
+            }
+            <div className="flex gap-2">
+              <button onClick={() => setShowResume(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
+              <button onClick={handleGenerateResume} disabled={!currentId || !fileName} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">Résumer</button>
             </div>
             {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
           </div>

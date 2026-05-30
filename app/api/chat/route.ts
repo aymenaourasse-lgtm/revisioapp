@@ -55,6 +55,30 @@ MOTS CLES :
 Genere uniquement la fiche, rien d'autre.`;
   }
 
+  if (mode === "resume") {
+    const base = fileContent ? "le contenu des notes fourni" : "mes notes";
+    systemPrompt = `Tu es Revisio IA. Fais un resume structure et detaille de : ${base}.
+
+Format exact :
+
+RESUME : [TITRE EN MAJUSCULES]
+
+INTRODUCTION :
+[2-3 phrases de contexte]
+
+POINTS PRINCIPAUX :
+1. [point 1]
+2. [point 2]
+3. [point 3]
+4. [point 4]
+5. [point 5]
+
+CONCLUSION :
+[2-3 phrases de synthese]
+
+Genere uniquement le resume, rien d'autre.`;
+  }
+
   let apiMessages: any[];
 
   if (imageBase64) {
@@ -68,10 +92,10 @@ Genere uniquement la fiche, rien d'autre.`;
         ],
       },
     ];
-  } else if (mode === "quiz" || mode === "fiche") {
+  } else if (mode === "quiz" || mode === "fiche" || mode === "resume") {
     apiMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: mode === "quiz" ? "Genere un quiz" : "Genere une fiche de revision" },
+      { role: "user", content: mode === "quiz" ? "Genere un quiz" : mode === "fiche" ? "Genere une fiche de revision" : "Genere un resume" },
     ];
   } else {
     apiMessages = [
