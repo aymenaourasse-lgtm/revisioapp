@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   collection, addDoc, getDocs,
   updateDoc, doc, orderBy, query,
-  serverTimestamp, where
+  serverTimestamp, where, deleteDoc
 } from "firebase/firestore";
 import { db } from "../firestore";
 import { logOut, onAuthChange } from "../auth";
@@ -31,9 +31,12 @@ export default function StudentPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsub = onAuthChange((user: any) => {
@@ -46,6 +49,10 @@ export default function StudentPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (editingId) editInputRef.current?.focus();
+  }, [editingId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -64,6 +71,20 @@ export default function StudentPage() {
     setCurrentId(docRef.id);
     setMessages([]);
     setFileContent(null); setFileName(null); setImageBase64(null); setImagePreview(null);
+  };
+
+  const handleDeleteConversation = async (id: string) => {
+    if (!confirm("Supprimer cette conversation ?")) return;
+    await deleteDoc(doc(db, "conversations", id));
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (currentId === id) { setCurrentId(null); setMessages([]); }
+  };
+
+  const handleRename = async (id: string) => {
+    if (!editingTitle.trim()) { setEditingId(null); return; }
+    await updateDoc(doc(db, "conversations", id), { title: editingTitle.trim() });
+    setConversations((prev) => prev.map((c) => c.id === id ? { ...c, title: editingTitle.trim() } : c));
+    setEditingId(null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,11 +172,34 @@ export default function StudentPage() {
         <div className="flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-0.5">
           {conversations.length === 0 && <p className="text-gray-600 text-xs text-center mt-6">Aucune conversation</p>}
           {conversations.map((c) => (
-            <button key={c.id} onClick={() => { setCurrentId(c.id); setMessages(c.messages); }}
-              className={`w-full text-left text-sm px-3 py-2 rounded-lg truncate transition-colors flex items-center gap-2 ${currentId === c.id ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"}`}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 opacity-60"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              <span className="truncate">{c.title}</span>
-            </button>
+            <div key={c.id} className={`group flex items-center gap-1 rounded-lg ${currentId === c.id ? "bg-blue-600" : "hover:bg-gray-800"}`}>
+              {editingId === c.id ? (
+                <input
+                  ref={editInputRef}
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={() => handleRename(c.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleRename(c.id); if (e.key === "Escape") setEditingId(null); }}
+                  className="flex-1 bg-transparent text-sm px-3 py-2 outline-none text-white"
+                />
+              ) : (
+                <button
+                  onClick={() => { setCurrentId(c.id); setMessages(c.messages); }}
+                  onDoubleClick={() => { setEditingId(c.id); setEditingTitle(c.title); }}
+                  className={`flex-1 text-left text-sm px-3 py-2 truncate flex items-center gap-2 ${currentId === c.id ? "text-white" : "text-gray-400 group-hover:text-white"}`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 opacity-60"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <span className="truncate">{c.title}</span>
+                </button>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
+                className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded transition-all hover:text-red-400 ${currentId === c.id ? "text-blue-200" : "text-gray-600"}`}
+                title="Supprimer"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
           ))}
         </div>
         <div className="p-3 border-t border-gray-800 flex items-center gap-3">
