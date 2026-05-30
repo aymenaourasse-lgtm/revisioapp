@@ -1,0 +1,47 @@
+import { NextRequest } from "next/server";
+import Stripe from "stripe";
+
+export async function POST(req: NextRequest) {
+  const { messages, subject, numCards = 5 } = await req.json();
+
+  const context = messages
+    ?.map((m: any) => `${m.role === "user" ? "Étudiant" : "IA"}: ${m.content}`)
+    .join("\n")
+    .slice(0, 6000) ?? "";
+
+  const prompt = subject
+    ? `Génère ${numCards} flashcards sur le sujet : "${subject}".`
+    : `Génère ${numCards} flashcards basées sur cette conversation :\n${context}`;
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Tu es un assistant pédagogique. Génère des flashcards en JSON uniquement.
+Format STRICT (pas de markdown, pas de texte avant/après) :
+[{"front": "Question", "back": "Réponse"}, ...]`,
+        },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 1500,
+    }),
+  });
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content ?? "[]";
+
+  try {
+    const clean = text.replace(/```json|```/g, "").trim();
+    const cards = JSON.parse(clean);
+    return Response.json({ cards });
+  } catch {
+    return Response.json({ cards: [] });
+  }
+}
