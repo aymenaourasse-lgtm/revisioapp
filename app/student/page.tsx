@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   collection, addDoc, getDocs,
   updateDoc, doc, orderBy, query,
-  serverTimestamp, where, deleteDoc
+  serverTimestamp, where, deleteDoc,
+  getDoc, setDoc
 } from "firebase/firestore";
 import { db } from "../firestore";
 import { logOut, onAuthChange } from "../auth";
@@ -13,10 +14,15 @@ import { logOut, onAuthChange } from "../auth";
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; messages: Message[] };
 
+const FREE_LIMIT = 10;
+
 export default function StudentPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [isPro, setIsPro] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -57,12 +63,42 @@ export default function StudentPage() {
   useEffect(() => {
     if (!userId) return;
     const load = async () => {
+      // Charger les conversations
       const q = query(collection(db, "conversations"), where("userId", "==", userId), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
       setConversations(snap.docs.map((d) => ({ id: d.id, title: d.data().title, messages: d.data().messages ?? [] })));
+
+      // Charger le profil utilisateur
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setIsPro(data.plan === "pro");
+        const today = new Date().toDateString();
+        if (data.lastMessageDate === today) {
+          setMessageCount(data.messageCount ?? 0);
+        } else {
+          setMessageCount(0);
+        }
+      }
     };
     load();
   }, [userId]);
+
+  const checkAndIncrementCount = async () => {
+    if (isPro) return true;
+    if (messageCount >= FREE_LIMIT) {
+      setShowLimitModal(true);
+      return false;
+    }
+    const today = new Date().toDateString();
+    const newCount = messageCount + 1;
+    setMessageCount(newCount);
+    await setDoc(doc(db, "users", userId!), {
+      messageCount: newCount,
+      lastMessageDate: today,
+    }, { merge: true });
+    return true;
+  };
 
   const handleNewChat = async () => {
     if (!userId) return;
@@ -107,6 +143,10 @@ export default function StudentPage() {
   const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string) => {
     const text = overrideInput ?? input;
     if ((!text.trim() && !imageBase64) || !currentId) return;
+
+    const canSend = await checkAndIncrementCount();
+    if (!canSend) return;
+
     const userMsg: Message = {
       role: "user",
       content: mode === "quiz" ? `Quiz sur : ${subject ?? "mes notes"} (${numQuestions} questions)`
@@ -146,6 +186,7 @@ export default function StudentPage() {
   };
 
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
+  const remaining = FREE_LIMIT - messageCount;
 
   return (
     <div className="flex h-screen bg-[#0d0d14] text-white" style={{fontFamily: "system-ui, sans-serif"}}>
@@ -174,37 +215,50 @@ export default function StudentPage() {
           {conversations.map((c) => (
             <div key={c.id} className={`group flex items-center gap-1 rounded-lg ${currentId === c.id ? "bg-blue-600" : "hover:bg-gray-800"}`}>
               {editingId === c.id ? (
-                <input
-                  ref={editInputRef}
-                  value={editingTitle}
-                  onChange={(e) => setEditingTitle(e.target.value)}
+                <input ref={editInputRef} value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)}
                   onBlur={() => handleRename(c.id)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleRename(c.id); if (e.key === "Escape") setEditingId(null); }}
-                  className="flex-1 bg-transparent text-sm px-3 py-2 outline-none text-white"
-                />
+                  className="flex-1 bg-transparent text-sm px-3 py-2 outline-none text-white" />
               ) : (
-                <button
-                  onClick={() => { setCurrentId(c.id); setMessages(c.messages); }}
+                <button onClick={() => { setCurrentId(c.id); setMessages(c.messages); }}
                   onDoubleClick={() => { setEditingId(c.id); setEditingTitle(c.title); }}
-                  className={`flex-1 text-left text-sm px-3 py-2 truncate flex items-center gap-2 ${currentId === c.id ? "text-white" : "text-gray-400 group-hover:text-white"}`}
-                >
+                  className={`flex-1 text-left text-sm px-3 py-2 truncate flex items-center gap-2 ${currentId === c.id ? "text-white" : "text-gray-400 group-hover:text-white"}`}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 opacity-60"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   <span className="truncate">{c.title}</span>
                 </button>
               )}
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
-                className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded transition-all hover:text-red-400 ${currentId === c.id ? "text-blue-200" : "text-gray-600"}`}
-                title="Supprimer"
-              >
+              <button onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.id); }}
+                className={`opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded transition-all hover:text-red-400 ${currentId === c.id ? "text-blue-200" : "text-gray-600"}`} title="Supprimer">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
               </button>
             </div>
           ))}
         </div>
+
+        {/* Compteur messages gratuits */}
+        {!isPro && (
+          <div className="px-3 pb-2">
+            <div className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-xs">Messages aujourd'hui</span>
+                <span className={`text-xs font-medium ${remaining <= 3 ? "text-red-400" : "text-gray-300"}`}>{messageCount}/{FREE_LIMIT}</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div className={`h-1.5 rounded-full transition-all ${remaining <= 3 ? "bg-red-500" : "bg-blue-500"}`} style={{width: `${(messageCount / FREE_LIMIT) * 100}%`}}></div>
+              </div>
+              <button onClick={() => router.push("/pricing")} className="text-blue-400 text-xs hover:underline text-center">
+                Passer à Pro — illimité
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="p-3 border-t border-gray-800 flex items-center gap-3">
           <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">{initials}</div>
-          <div className="flex-1 min-w-0"><p className="text-xs text-gray-300 truncate">{userEmail}</p></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-300 truncate">{userEmail}</p>
+            {isPro && <p className="text-xs text-blue-400">Pro</p>}
+          </div>
           <button onClick={async () => { await logOut(); router.push("/login"); }} title="Se déconnecter" className="text-gray-600 hover:text-red-400 transition-colors">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </button>
@@ -304,6 +358,29 @@ export default function StudentPage() {
           </div>
         </div>
       </main>
+
+      {/* ── Modal Limite atteinte ── */}
+      {showLimitModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl text-center">
+            <div className="w-12 h-12 bg-orange-900 rounded-full flex items-center justify-center mx-auto">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Limite quotidienne atteinte</h2>
+              <p className="text-gray-400 text-sm mt-1">Tu as utilisé tes {FREE_LIMIT} messages gratuits aujourd'hui. Passe à Pro pour des messages illimités !</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => router.push("/pricing")} className="bg-blue-600 hover:bg-blue-500 rounded-xl py-2.5 text-sm font-medium transition-colors">
+                Passer à Pro →
+              </button>
+              <button onClick={() => setShowLimitModal(false)} className="bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors text-gray-400">
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal Quiz ── */}
       {showQuiz && (
