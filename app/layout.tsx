@@ -31,6 +31,9 @@ export const metadata: Metadata = {
     description: "Quiz, fiches, flashcards et résumés générés par l'IA pour réviser efficacement.",
   },
   metadataBase: new URL("https://www.revisioapp.pro"),
+  verification: {
+    google: "71uEDphKxkvEo1jHJla6F_LtrW_Qn-CzqKf2UFuDXcg",
+  },
 };
 
 export default function RootLayout({
