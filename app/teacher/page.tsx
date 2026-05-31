@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthChange, logOut } from "../auth";
-import { collection, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../firestore";
 
-type Quiz = { id: string; title: string; subject: string; createdAt: any };
-type Fiche = { id: string; title: string; subject: string; createdAt: any };
+type Quiz = { id: string; title: string; subject: string; content: string; createdAt: any };
+type Fiche = { id: string; title: string; subject: string; content: string; createdAt: any };
 
 export default function TeacherPage() {
   const router = useRouter();
@@ -26,9 +26,9 @@ export default function TeacherPage() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<{role: string; content: string}[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
-  const [generatedContent, setGeneratedContent] = useState<string | null>(null);
+  const [selectedContent, setSelectedContent] = useState<string | null>(null);
+  const [selectedTitle, setSelectedTitle] = useState<string>("");
 
-  // Calendrier
   const [events, setEvents] = useState<{id: string; title: string; date: string; type: string}[]>([
     { id: "1", title: "Examen de biologie", date: "2026-06-10", type: "examen" },
     { id: "2", title: "Quiz de mathématiques", date: "2026-06-15", type: "quiz" },
@@ -43,7 +43,6 @@ export default function TeacherPage() {
       if (!user) { router.push("/login"); return; }
       setEmail(user.email ?? "");
       setUserId(user.uid);
-      // Charger élèves
       const elevesSnap = await getDocs(query(collection(db, "users"), where("role", "==", "student")));
       setEleves(elevesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
@@ -58,10 +57,13 @@ export default function TeacherPage() {
       body: JSON.stringify({ messages: [], mode: "quiz", subject: quizSubject, numQuestions: quizNum }),
     });
     const data = await res.json();
-    setGeneratedContent(data.reply);
-    setQuizList(prev => [{ id: Date.now().toString(), title: `Quiz — ${quizSubject}`, subject: quizSubject, createdAt: new Date() }, ...prev]);
+    const newQuiz: Quiz = { id: Date.now().toString(), title: `Quiz — ${quizSubject}`, subject: quizSubject, content: data.reply, createdAt: new Date() };
+    setQuizList(prev => [newQuiz, ...prev]);
     setGenerating(false);
     setShowQuizModal(false);
+    setQuizSubject("");
+    setSelectedContent(data.reply);
+    setSelectedTitle(`Quiz — ${quizSubject}`);
   };
 
   const handleGenerateFiche = async () => {
@@ -72,10 +74,13 @@ export default function TeacherPage() {
       body: JSON.stringify({ messages: [], mode: "fiche", subject: ficheSubject }),
     });
     const data = await res.json();
-    setGeneratedContent(data.reply);
-    setFicheList(prev => [{ id: Date.now().toString(), title: `Fiche — ${ficheSubject}`, subject: ficheSubject, createdAt: new Date() }, ...prev]);
+    const newFiche: Fiche = { id: Date.now().toString(), title: `Fiche — ${ficheSubject}`, subject: ficheSubject, content: data.reply, createdAt: new Date() };
+    setFicheList(prev => [newFiche, ...prev]);
     setGenerating(false);
     setShowFicheModal(false);
+    setFicheSubject("");
+    setSelectedContent(data.reply);
+    setSelectedTitle(`Fiche — ${ficheSubject}`);
   };
 
   const handleChat = async () => {
@@ -128,7 +133,7 @@ export default function TeacherPage() {
             { key: "fiches", label: "Mes fiches", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
             { key: "eleves", label: "Mes élèves", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
           ].map(item => (
-            <button key={item.key} onClick={() => setActiveTab(item.key as any)}
+            <button key={item.key} onClick={() => { setActiveTab(item.key as any); setSelectedContent(null); }}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === item.key ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800"}`}>
               {item.icon}{item.label}
             </button>
@@ -189,17 +194,6 @@ export default function TeacherPage() {
                 {events.length === 0 && <p className="text-gray-500 text-sm text-center py-4">Aucune évaluation planifiée</p>}
               </div>
             </div>
-
-            {/* Contenu généré */}
-            {generatedContent && (
-              <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">Dernier contenu généré</h3>
-                  <button onClick={() => setGeneratedContent(null)} className="text-gray-500 hover:text-white text-xs">✕</button>
-                </div>
-                <pre className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{generatedContent}</pre>
-              </div>
-            )}
           </div>
         )}
 
@@ -212,7 +206,7 @@ export default function TeacherPage() {
                   <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   </div>
-                  <p className="text-gray-400 text-sm">Chat IA pour enseignants — pose tes questions pédagogiques</p>
+                  <p className="text-gray-400 text-sm">Chat IA pour enseignants</p>
                 </div>
               )}
               {chatMessages.map((m, i) => (
@@ -251,7 +245,7 @@ export default function TeacherPage() {
         )}
 
         {/* Quiz */}
-        {activeTab === "quiz" && (
+        {activeTab === "quiz" && !selectedContent && (
           <div className="p-8 flex flex-col gap-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-semibold">Mes quiz</h2>
@@ -268,7 +262,7 @@ export default function TeacherPage() {
                 <div key={q.id} className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-5 flex flex-col gap-3">
                   <p className="font-medium text-sm">{q.title}</p>
                   <p className="text-gray-500 text-xs">{q.subject}</p>
-                  <button onClick={() => setGeneratedContent(null)} className="bg-gray-800 hover:bg-gray-700 rounded-lg py-1.5 text-xs transition-colors">Voir le contenu</button>
+                  <button onClick={() => { setSelectedContent(q.content); setSelectedTitle(q.title); }} className="bg-gray-800 hover:bg-gray-700 rounded-lg py-1.5 text-xs transition-colors">Voir le contenu</button>
                 </div>
               ))}
             </div>
@@ -276,7 +270,7 @@ export default function TeacherPage() {
         )}
 
         {/* Fiches */}
-        {activeTab === "fiches" && (
+        {activeTab === "fiches" && !selectedContent && (
           <div className="p-8 flex flex-col gap-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-semibold">Mes fiches</h2>
@@ -293,8 +287,25 @@ export default function TeacherPage() {
                 <div key={f.id} className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-5 flex flex-col gap-3">
                   <p className="font-medium text-sm">{f.title}</p>
                   <p className="text-gray-500 text-xs">{f.subject}</p>
+                  <button onClick={() => { setSelectedContent(f.content); setSelectedTitle(f.title); }} className="bg-gray-800 hover:bg-gray-700 rounded-lg py-1.5 text-xs transition-colors">Voir le contenu</button>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Vue contenu */}
+        {selectedContent && (
+          <div className="p-8 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setSelectedContent(null)} className="text-gray-400 hover:text-white flex items-center gap-1 text-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Retour
+              </button>
+              <h2 className="text-lg font-semibold">{selectedTitle}</h2>
+            </div>
+            <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6">
+              <pre className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{selectedContent}</pre>
             </div>
           </div>
         )}
