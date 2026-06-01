@@ -38,7 +38,7 @@ export default function PricingPage() {
       description: "Découvre Révisio IA sans engagement",
       features: ["10 messages par jour", "Chat IA de base", "Historique limité"],
       priceId: null,
-      cta: "Commencer maintenant",
+      cta: "Gratuit maintenant",
       highlight: false,
     },
     {
@@ -90,7 +90,7 @@ export default function PricingPage() {
         <p className="text-gray-400 text-lg">Commence gratuitement, évolue quand tu es prêt</p>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 pb-20 grid grid-cols-3 gap-6 items-center">
+      <div className="max-w-5xl mx-auto px-6 pb-20 grid grid-cols-3 gap-6 items-stretch">
         {plans.map((plan) => (
           <div key={plan.name} className={`relative rounded-2xl p-6 flex flex-col gap-5 border transition-all ${
             plan.highlight
@@ -98,18 +98,18 @@ export default function PricingPage() {
               : "bg-[#111827] border-gray-800 hover:border-gray-700"
           }`}>
             {plan.highlight && (
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-white text-blue-600 text-xs px-4 py-1 rounded-full font-bold shadow-lg">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-white text-blue-600 text-xs px-4 py-1 rounded-full font-bold shadow-lg whitespace-nowrap">
                 ⭐ Populaire
               </div>
             )}
             {plan.badge && (
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gray-700 text-gray-200 text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-900 border border-blue-700 text-blue-300 text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap">
                 {plan.badge}
               </div>
             )}
             <div>
-              <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${plan.highlight ? "text-blue-200" : "text-gray-500"}`}>{plan.sub}</p>
-              <h2 className="text-lg font-bold">{plan.name}</h2>
+              <p className={`text-xs font-medium mb-2 ${plan.highlight ? "text-blue-200" : "text-gray-500"}`}>{plan.sub}</p>
+              <h2 className="text-xl font-bold">{plan.name}</h2>
               <p className={`text-sm mt-1 ${plan.highlight ? "text-blue-100" : "text-gray-500"}`}>{plan.description}</p>
             </div>
             <div className={`h-px w-full ${plan.highlight ? "bg-blue-500" : "bg-gray-800"}`}></div>
@@ -120,7 +120,10 @@ export default function PricingPage() {
                   <span className={`text-sm ${plan.highlight ? "text-blue-200" : "text-gray-500"}`}>/mois</span>
                 </>
               ) : (
-                <span className="text-4xl font-black text-white">0$</span>
+                <>
+                  <span className="text-4xl font-black text-white">0$</span>
+                  <span className="text-sm text-gray-500 ml-1">pour toujours</span>
+                </>
               )}
             </div>
             <ul className="flex flex-col gap-2.5 flex-1">
@@ -142,7 +145,7 @@ export default function PricingPage() {
                   : "bg-blue-600 hover:bg-blue-500 text-white"
               } disabled:opacity-50`}
             >
-              {loading === plan.priceId ? "Chargement..." : plan.cta} →
+              {plan.cta} →
             </button>
           </div>
         ))}
