@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthChange, logOut } from "../auth";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { db } from "../firestore";
+import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 
 type Quiz = { id: string; title: string; subject: string; content: string; createdAt: any };
 type Fiche = { id: string; title: string; subject: string; content: string; createdAt: any };
@@ -13,7 +14,7 @@ export default function TeacherPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "quiz" | "fiches" | "eleves" | "chat">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "quiz" | "fiches" | "eleves" | "chat" | "profil">("dashboard");
   const [quizList, setQuizList] = useState<Quiz[]>([]);
   const [ficheList, setFicheList] = useState<Fiche[]>([]);
   const [eleves, setEleves] = useState<any[]>([]);
@@ -28,6 +29,15 @@ export default function TeacherPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [selectedContent, setSelectedContent] = useState<string | null>(null);
   const [selectedTitle, setSelectedTitle] = useState<string>("");
+  const [userPlan, setUserPlan] = useState("pro_teacher");
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPasswordVal, setNewPasswordVal] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMsg, setPasswordMsg] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [events, setEvents] = useState<{id: string; title: string; date: string; type: string}[]>([
     { id: "1", title: "Examen de biologie", date: "2026-06-10", type: "examen" },
@@ -45,6 +55,12 @@ export default function TeacherPage() {
       setUserId(user.uid);
       const elevesSnap = await getDocs(query(collection(db, "users"), where("role", "==", "student")));
       setEleves(elevesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setUserPlan(data.plan ?? "pro_teacher");
+        setSubscriptionId(data.subscriptionId ?? null);
+      }
     });
     return () => unsub();
   }, []);
@@ -106,6 +122,40 @@ export default function TeacherPage() {
     setNewEventTitle(""); setNewEventDate(""); setShowEventModal(false);
   };
 
+  const handleCancelSubscription = async () => {
+    if (!confirm("Confirmer l'annulation de l'abonnement ?")) return;
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/stripe/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (res.ok) setCancelSuccess(true);
+    } catch (e) {}
+    setCancelLoading(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (newPasswordVal !== confirmPassword) { setPasswordMsg("Les mots de passe ne correspondent pas."); return; }
+    if (newPasswordVal.length < 6) { setPasswordMsg("Le mot de passe doit contenir au moins 6 caractères."); return; }
+    setPasswordLoading(true);
+    setPasswordMsg("");
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user || !user.email) return;
+      const credential = EmailAuthProvider.credential(user.email, oldPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPasswordVal);
+      setPasswordMsg("Mot de passe changé avec succès !");
+      setOldPassword(""); setNewPasswordVal(""); setConfirmPassword("");
+    } catch (e: any) {
+      setPasswordMsg("Erreur : mot de passe actuel incorrect.");
+    }
+    setPasswordLoading(false);
+  };
+
   const initials = email ? email[0].toUpperCase() : "?";
 
   return (
@@ -132,6 +182,7 @@ export default function TeacherPage() {
             { key: "quiz", label: "Mes quiz", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> },
             { key: "fiches", label: "Mes fiches", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
             { key: "eleves", label: "Mes élèves", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+            { key: "profil", label: "Mon profil", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
           ].map(item => (
             <button key={item.key} onClick={() => { setActiveTab(item.key as any); setSelectedContent(null); }}
               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === item.key ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white hover:bg-gray-800"}`}>
@@ -172,8 +223,6 @@ export default function TeacherPage() {
                 </div>
               ))}
             </div>
-
-            {/* Calendrier */}
             <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Calendrier d'évaluations</h3>
@@ -211,8 +260,12 @@ export default function TeacherPage() {
               )}
               {chatMessages.map((m, i) => (
                 <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === "user" ? "bg-purple-600" : "bg-gray-700"}`}>
-                    {m.role === "user" ? initials : "R"}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === "user" ? "bg-purple-600" : "bg-[#1a1a2e] border border-gray-700"}`}>
+                    {m.role === "user" ? initials : (
+                      <div className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                      </div>
+                    )}
                   </div>
                   <div className={`max-w-2xl px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${m.role === "user" ? "bg-purple-600 text-white rounded-tr-sm" : "bg-[#1a1a2e] text-gray-100 rounded-tl-sm border border-gray-800"}`}>
                     {m.content}
@@ -221,7 +274,11 @@ export default function TeacherPage() {
               ))}
               {chatLoading && (
                 <div className="flex gap-3">
-                  <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">R</div>
+                  <div className="w-7 h-7 rounded-full bg-[#1a1a2e] border border-gray-700 flex items-center justify-center">
+                    <div className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                    </div>
+                  </div>
                   <div className="bg-[#1a1a2e] border border-gray-800 px-4 py-3 rounded-2xl flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{animationDelay:"0ms"}}></div>
                     <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{animationDelay:"150ms"}}></div>
@@ -328,6 +385,98 @@ export default function TeacherPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Profil */}
+        {activeTab === "profil" && (
+          <div className="p-8 flex flex-col gap-6 max-w-2xl">
+            <h2 className="text-2xl font-semibold">Mon profil</h2>
+
+            {/* Infos compte */}
+            <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
+              <h3 className="font-semibold text-sm text-gray-300 uppercase tracking-wider">Informations du compte</h3>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-purple-700 flex items-center justify-center text-xl font-bold">{initials}</div>
+                <div>
+                  <p className="font-semibold text-white">{email}</p>
+                  <p className="text-purple-400 text-sm">Enseignant Pro</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
+                  <p className="text-gray-500 text-xs mb-1">Email</p>
+                  <p className="text-sm text-white truncate">{email}</p>
+                </div>
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
+                  <p className="text-gray-500 text-xs mb-1">Rôle</p>
+                  <p className="text-sm text-white">Enseignant</p>
+                </div>
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
+                  <p className="text-gray-500 text-xs mb-1">Abonnement</p>
+                  <p className="text-sm text-purple-400 font-medium">Enseignant Pro</p>
+                </div>
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
+                  <p className="text-gray-500 text-xs mb-1">Statut</p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                    <p className="text-sm text-green-400">Actif</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
+              <h3 className="font-semibold text-sm text-gray-300 uppercase tracking-wider">Statistiques</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Élèves", value: eleves.length, color: "text-blue-400" },
+                  { label: "Quiz créés", value: quizList.length, color: "text-green-400" },
+                  { label: "Fiches créées", value: ficheList.length, color: "text-purple-400" },
+                ].map((stat, i) => (
+                  <div key={i} className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-4 text-center">
+                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                    <p className="text-gray-500 text-xs mt-1">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Changer mot de passe */}
+            <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
+              <h3 className="font-semibold text-sm text-gray-300 uppercase tracking-wider">Changer le mot de passe</h3>
+              <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="Mot de passe actuel"
+                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors" />
+              <input type="password" value={newPasswordVal} onChange={(e) => setNewPasswordVal(e.target.value)}
+                placeholder="Nouveau mot de passe"
+                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors" />
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirmer le nouveau mot de passe"
+                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors" />
+              {passwordMsg && (
+                <p className={`text-xs ${passwordMsg.includes("succès") ? "text-green-400" : "text-red-400"}`}>{passwordMsg}</p>
+              )}
+              <button onClick={handleChangePassword} disabled={passwordLoading || !oldPassword || !newPasswordVal || !confirmPassword}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">
+                {passwordLoading ? "Changement…" : "Changer le mot de passe"}
+              </button>
+            </div>
+
+            {/* Annuler abonnement */}
+            <div className="bg-[#1a1a2e] border border-red-900/50 rounded-2xl p-6 flex flex-col gap-4">
+              <h3 className="font-semibold text-sm text-red-400 uppercase tracking-wider">Zone dangereuse</h3>
+              <p className="text-gray-400 text-sm">L'annulation de ton abonnement prendra effet à la fin de la période de facturation en cours.</p>
+              {cancelSuccess ? (
+                <p className="text-green-400 text-sm">Abonnement annulé avec succès.</p>
+              ) : (
+                <button onClick={handleCancelSubscription} disabled={cancelLoading}
+                  className="bg-red-900/40 hover:bg-red-900/60 border border-red-800 text-red-400 rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-50">
+                  {cancelLoading ? "Annulation…" : "Annuler mon abonnement"}
+                </button>
+              )}
             </div>
           </div>
         )}
