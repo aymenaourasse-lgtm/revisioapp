@@ -247,9 +247,9 @@ export default function HomePage() {
         <p className="text-gray-400 text-sm text-center mb-8">Des élèves et enseignants qui utilisent Révisio IA au quotidien</p>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { name: "Sophie M.", role: "Terminale S", text: "J'ai gagné tellement de temps pour mes révisions. Les fiches générées sont parfaites et les quiz m'aident vraiment à mémoriser." },
-            { name: "Thomas L.", role: "Étudiant en L2", text: "Révisio IA a transformé ma façon de réviser. Je génère des flashcards depuis mes cours en quelques secondes. Incroyable !" },
-            { name: "Marie D.", role: "Professeure de SVT", text: "Je crée des quiz pour mes élèves en quelques minutes. Le tableau de bord enseignant est vraiment bien pensé." },
+            { name: "Sophie M.", role: "5e secondaire", text: "J'ai gagné tellement de temps pour mes révisions. Les fiches générées sont parfaites et les quiz m'aident vraiment à mémoriser." },
+            { name: "Thomas L.", role: "Étudiant au Cégep", text: "Révisio IA a transformé ma façon de réviser. Je génère des flashcards depuis mes cours en quelques secondes. Incroyable !" },
+            { name: "Marie D.", role: "Enseignante au secondaire", text: "Je crée des quiz pour mes élèves en quelques minutes. Le tableau de bord enseignant est vraiment bien pensé." },
           ].map((t, i) => (
             <div key={i} className="bg-[#111827] border border-gray-800 rounded-2xl p-5 flex flex-col gap-3">
               <div className="flex gap-0.5">
