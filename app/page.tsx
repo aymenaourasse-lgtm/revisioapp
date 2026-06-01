@@ -15,32 +15,10 @@ export default function HomePage() {
       ]
     },
     quiz: {
-      content: `Question 1 : Quel est le principal pigment responsable de la photosynthèse ?
-A) La chlorophylle ✓
-B) La mélanine
-C) La kératine
-D) La carotène
-
-Question 2 : Où se déroule la photosynthèse ?
-A) Dans les racines
-B) Dans les feuilles ✓
-C) Dans les tiges
-D) Dans les fleurs`
+      content: `Question 1 : Quel est le principal pigment responsable de la photosynthèse ?\nA) La chlorophylle ✓\nB) La mélanine\nC) La kératine\nD) La carotène\n\nQuestion 2 : Où se déroule la photosynthèse ?\nA) Dans les racines\nB) Dans les feuilles ✓\nC) Dans les tiges\nD) Dans les fleurs`
     },
     fiche: {
-      content: `FICHE DE RÉVISION : LA PHOTOSYNTHÈSE
-
-DÉFINITION :
-Processus par lequel les végétaux chlorophylliens synthétisent des matières organiques à partir de CO₂ et d'eau, grâce à l'énergie lumineuse.
-
-POINTS CLÉS :
-- Se déroule dans les chloroplastes
-- Nécessite la lumière, le CO₂ et l'eau
-- Produit du glucose et de l'oxygène
-- Équation : 6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂
-
-MOTS CLÉS :
-chlorophylle, chloroplaste, glucose, CO₂, lumière`
+      content: `FICHE DE RÉVISION : LA PHOTOSYNTHÈSE\n\nDÉFINITION :\nProcessus par lequel les végétaux chlorophylliens synthétisent des matières organiques à partir de CO₂ et d'eau, grâce à l'énergie lumineuse.\n\nPOINTS CLÉS :\n- Se déroule dans les chloroplastes\n- Nécessite la lumière, le CO₂ et l'eau\n- Produit du glucose et de l'oxygène\n- Équation : 6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂\n\nMOTS CLÉS :\nchlorophylle, chloroplaste, glucose, CO₂, lumière`
     },
     flashcard: {
       front: "Qu'est-ce que la photosynthèse ?",
@@ -90,31 +68,41 @@ chlorophylle, chloroplaste, glucose, CO₂, lumière`
       </main>
 
       {/* Démo interactive */}
-      <section className="px-8 py-16 max-w-4xl mx-auto w-full">
-        <h3 className="text-2xl font-semibold text-center mb-2">Vois Révisio IA en action</h3>
-        <p className="text-gray-400 text-sm text-center mb-8">Explore les fonctionnalités ci-dessous</p>
+      <section className="px-8 py-20 max-w-4xl mx-auto w-full">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 bg-blue-950 border border-blue-800 text-blue-300 text-xs px-3 py-1.5 rounded-full mb-4">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Démo interactive
+          </div>
+          <h3 className="text-3xl font-bold mb-2">Vois Révisio IA en action</h3>
+          <p className="text-gray-400 text-sm">Clique sur chaque fonctionnalité pour explorer</p>
+        </div>
 
         <div className="flex gap-2 justify-center mb-6">
           {[
-            { key: "chat", label: "Chat IA" },
-            { key: "quiz", label: "Quiz" },
-            { key: "fiche", label: "Fiche" },
-            { key: "flashcard", label: "Flashcard" },
+            { key: "chat", label: "💬 Chat IA" },
+            { key: "quiz", label: "❓ Quiz" },
+            { key: "fiche", label: "📄 Fiche" },
+            { key: "flashcard", label: "🃏 Flashcard" },
           ].map(tab => (
             <button key={tab.key} onClick={() => { setDemoTab(tab.key as any); setCardFlipped(false); }}
-              className={`px-4 py-2 rounded-lg text-sm transition-colors ${demoTab === tab.key ? "bg-blue-600 text-white" : "bg-[#1a1a2e] text-gray-400 hover:text-white"}`}>
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${demoTab === tab.key ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40" : "bg-[#1a1a2e] text-gray-400 hover:text-white border border-gray-800"}`}>
               {tab.label}
             </button>
           ))}
         </div>
 
-        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-6 min-h-64">
+        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-6 min-h-64 shadow-2xl">
           {demoTab === "chat" && (
             <div className="flex flex-col gap-4">
               {demoContent.chat.messages.map((m, i) => (
                 <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === "user" ? "bg-blue-600" : "bg-gray-700"}`}>
-                    {m.role === "user" ? "É" : "R"}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === "user" ? "bg-blue-600" : "bg-[#1a1a2e] border border-gray-700"}`}>
+                    {m.role === "user" ? "É" : (
+                      <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                      </div>
+                    )}
                   </div>
                   <div className={`max-w-lg px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${m.role === "user" ? "bg-blue-600 text-white rounded-tr-sm" : "bg-[#1a1a2e] text-gray-100 rounded-tl-sm border border-gray-800"}`}>
                     {m.content}
@@ -125,17 +113,39 @@ chlorophylle, chloroplaste, glucose, CO₂, lumière`
           )}
 
           {demoTab === "quiz" && (
-            <pre className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{demoContent.quiz.content}</pre>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <span className="text-sm font-medium text-blue-300">Quiz généré par IA</span>
+              </div>
+              <pre className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{demoContent.quiz.content}</pre>
+            </div>
           )}
 
           {demoTab === "fiche" && (
-            <pre className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{demoContent.fiche.content}</pre>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <span className="text-sm font-medium text-blue-300">Fiche de révision générée</span>
+              </div>
+              <pre className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{demoContent.fiche.content}</pre>
+            </div>
           )}
 
           {demoTab === "flashcard" && (
             <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/></svg>
+                </div>
+                <span className="text-sm font-medium text-blue-300">Flashcard interactive</span>
+              </div>
               <p className="text-gray-400 text-xs">Clique sur la carte pour la retourner</p>
-              <div onClick={() => setCardFlipped(!cardFlipped)} className="cursor-pointer w-full max-w-md bg-[#1a1a2e] border border-gray-700 hover:border-blue-600 rounded-2xl p-8 min-h-40 flex flex-col items-center justify-center gap-3 transition-colors">
+              <div onClick={() => setCardFlipped(!cardFlipped)} className="cursor-pointer w-full max-w-md bg-[#1a1a2e] border border-gray-700 hover:border-blue-600 rounded-2xl p-8 min-h-40 flex flex-col items-center justify-center gap-3 transition-all hover:shadow-lg hover:shadow-blue-900/20">
                 <p className="text-xs text-gray-500 uppercase tracking-wider">{cardFlipped ? "Réponse" : "Question"}</p>
                 <p className="text-base text-center font-medium leading-relaxed">
                   {cardFlipped ? demoContent.flashcard.back : demoContent.flashcard.front}
@@ -159,7 +169,7 @@ chlorophylle, chloroplaste, glucose, CO₂, lumière`
             { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="11" y2="18"/></svg>, title: "Résumé automatique", desc: "Upload tes notes et obtiens un résumé structuré en quelques secondes." },
             { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>, title: "Analyse de photos", desc: "Envoie une photo de tes notes — l'IA l'analyse et t'explique le contenu." },
           ].map((f, i) => (
-            <div key={i} className="bg-[#111827] border border-gray-800 rounded-2xl p-6 flex flex-col gap-2">
+            <div key={i} className="bg-[#111827] border border-gray-800 rounded-2xl p-6 flex flex-col gap-2 hover:border-gray-600 transition-colors">
               <div className="w-8 h-8 bg-blue-900 rounded-lg flex items-center justify-center mb-1">{f.icon}</div>
               <h4 className="font-medium text-sm">{f.title}</h4>
               <p className="text-gray-400 text-sm">{f.desc}</p>
@@ -177,7 +187,7 @@ chlorophylle, chloroplaste, glucose, CO₂, lumière`
             { title: "Élève Pro", price: "9.99€", desc: "/mois", features: ["Messages illimités", "Toutes les fonctionnalités", "Upload de fichiers", "Analyse de photos"], cta: "Passer Pro", pro: true },
             { title: "Enseignant Pro", price: "14.99€", desc: "/mois", features: ["Tout Élève Pro", "Dashboard enseignant", "Créer quiz & fiches", "Gestion des élèves"], cta: "Pour ma classe", pro: false },
           ].map((plan, i) => (
-            <div key={i} className={`rounded-2xl p-6 flex flex-col gap-4 border ${plan.pro ? "bg-blue-600 border-blue-500" : "bg-[#111827] border-gray-800"}`}>
+            <div key={i} className={`rounded-2xl p-6 flex flex-col gap-4 border ${plan.pro ? "bg-blue-600 border-blue-500 shadow-xl shadow-blue-900/40" : "bg-[#111827] border-gray-800"}`}>
               <div>
                 <p className="font-semibold">{plan.title}</p>
                 <p className="text-2xl font-bold mt-1">{plan.price} <span className="text-sm font-normal opacity-70">{plan.desc}</span></p>
