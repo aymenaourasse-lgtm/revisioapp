@@ -35,7 +35,7 @@ export default function PricingPage() {
   const plans = [
     {
       name: "Gratuit",
-      price: "0",
+      price: null,
       description: "Pour découvrir Révisio IA",
       features: [
         "10 messages par jour",
@@ -116,8 +116,14 @@ export default function PricingPage() {
               <p className="text-gray-500 text-sm mt-1">{plan.description}</p>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold">${plan.price}</span>
-              <span className="text-gray-500 text-sm">/mois</span>
+              {plan.price ? (
+                <>
+                  <span className="text-3xl font-bold">${plan.price}</span>
+                  <span className="text-gray-500 text-sm">/mois</span>
+                </>
+              ) : (
+                <span className="text-3xl font-bold text-green-400">Gratuit</span>
+              )}
             </div>
             <ul className="flex flex-col gap-2 flex-1">
               {plan.features.map((f) => (
