@@ -55,7 +55,7 @@ export default function PricingPage() {
     {
       name: "Enseignant Pro",
       badge: null,
-      sub: "Pour les classes",
+      sub: "Pour les enseignants",
       price: "14.99",
       description: "Facilite ton travail d'enseignant",
       features: ["Tout ce qu'inclut Élève Pro", "Tableau de bord enseignant", "Gestion des élèves", "Statistiques de classe", "Support prioritaire"],
