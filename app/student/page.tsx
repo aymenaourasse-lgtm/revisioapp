@@ -313,9 +313,11 @@ export default function StudentPage() {
           )}
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 bg-blue-600`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${m.role === "user" ? "bg-blue-600" : "bg-[#1a1a2e] border border-gray-700"}`}>
                 {m.role === "user" ? initials : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  </div>
                 )}
               </div>
               <div className={`max-w-2xl px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${m.role === "user" ? "bg-blue-600 text-white rounded-tr-sm" : "bg-[#1a1a2e] text-gray-100 rounded-tl-sm border border-gray-800"}`}>
@@ -325,8 +327,10 @@ export default function StudentPage() {
           ))}
           {loading && (
             <div className="flex gap-3">
-              <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              <div className="w-7 h-7 rounded-full bg-[#1a1a2e] border border-gray-700 flex items-center justify-center flex-shrink-0">
+                <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                </div>
               </div>
               <div className="bg-[#1a1a2e] border border-gray-800 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{animationDelay:"0ms"}}></div>
@@ -390,7 +394,6 @@ export default function StudentPage() {
         </div>
       </main>
 
-      {/* Modal Limite */}
       {showLimitModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl text-center">
@@ -409,7 +412,6 @@ export default function StudentPage() {
         </div>
       )}
 
-      {/* Modal Quiz */}
       {showQuiz && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
@@ -439,7 +441,6 @@ export default function StudentPage() {
         </div>
       )}
 
-      {/* Modal Fiche */}
       {showFiche && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
@@ -462,7 +463,6 @@ export default function StudentPage() {
         </div>
       )}
 
-      {/* Modal Résumé */}
       {showResume && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
