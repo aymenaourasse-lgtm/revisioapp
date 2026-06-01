@@ -391,18 +391,38 @@ export default function TeacherPage() {
 
         {/* Profil */}
         {activeTab === "profil" && (
-          <div className="p-8 flex flex-col gap-6 max-w-2xl">
+          <div className="p-8 flex flex-col gap-6 max-w-3xl w-full">
 
             {/* Header */}
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-800 flex items-center justify-center text-2xl font-black shadow-lg shadow-purple-900/40">{initials}</div>
-              <div>
+            <div className="bg-gradient-to-r from-purple-900/40 to-[#1a1a2e] border border-purple-800/40 rounded-2xl p-6 flex items-center gap-5">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-800 flex items-center justify-center text-3xl font-black shadow-lg shadow-purple-900/40 flex-shrink-0">{initials}</div>
+              <div className="flex-1">
                 <h2 className="text-2xl font-bold text-white">{email}</h2>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                  <span className="text-sm text-purple-400 font-medium">Enseignant Pro · Actif</span>
+                  <span className="text-sm text-purple-300 font-medium">Enseignant Pro · Actif</span>
                 </div>
+                <p className="text-gray-500 text-xs mt-2">Compte Révisio IA — tableau de bord enseignant</p>
               </div>
+              <div className="bg-purple-900/40 border border-purple-700 rounded-xl px-4 py-2 text-center flex-shrink-0">
+                <p className="text-purple-300 text-xs font-medium">Plan actuel</p>
+                <p className="text-white text-sm font-bold mt-0.5">Enseignant Pro</p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: "Élèves", value: eleves.length, color: "text-blue-400", bg: "bg-blue-900/20 border-blue-900/50" },
+                { label: "Quiz créés", value: quizList.length, color: "text-green-400", bg: "bg-green-900/20 border-green-900/50" },
+                { label: "Fiches créées", value: ficheList.length, color: "text-purple-400", bg: "bg-purple-900/20 border-purple-900/50" },
+                { label: "Évaluations", value: events.length, color: "text-orange-400", bg: "bg-orange-900/20 border-orange-900/50" },
+              ].map((stat, i) => (
+                <div key={i} className={`${stat.bg} border rounded-2xl p-4 text-center`}>
+                  <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
+                  <p className="text-gray-400 text-xs mt-1">{stat.label}</p>
+                </div>
+              ))}
             </div>
 
             {/* Infos compte */}
@@ -412,37 +432,29 @@ export default function TeacherPage() {
                 <h3 className="font-semibold text-sm text-white">Informations du compte</h3>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Email", value: email },
-                  { label: "Rôle", value: "Enseignant" },
-                  { label: "Abonnement", value: "Enseignant Pro", purple: true },
-                  { label: "Statut", value: "Actif", green: true },
-                ].map((item: any, i) => (
-                  <div key={i} className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3.5">
-                    <p className="text-gray-500 text-xs mb-1">{item.label}</p>
-                    <p className={`text-sm font-medium truncate ${item.purple ? "text-purple-400" : item.green ? "text-green-400" : "text-white"}`}>{item.value}</p>
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3.5">
+                  <p className="text-gray-500 text-xs mb-1">Email</p>
+                  <p className="text-sm font-medium text-white truncate">{email}</p>
+                </div>
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3.5">
+                  <p className="text-gray-500 text-xs mb-1">Abonnement</p>
+                  <p className="text-sm font-medium text-purple-400">Enseignant Pro</p>
+                </div>
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3.5">
+                  <p className="text-gray-500 text-xs mb-1">Prochaine évaluation</p>
+                  <p className="text-sm font-medium text-white">
+                    {events.length > 0
+                      ? new Date(events.sort((a,b) => a.date.localeCompare(b.date))[0].date).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })
+                      : "Aucune planifiée"}
+                  </p>
+                </div>
+                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3.5">
+                  <p className="text-gray-500 text-xs mb-1">Statut</p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                    <p className="text-sm font-medium text-green-400">Actif</p>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                <h3 className="font-semibold text-sm text-white">Statistiques</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "Élèves", value: eleves.length, color: "text-blue-400", bg: "bg-blue-900/20 border-blue-900/50" },
-                  { label: "Quiz créés", value: quizList.length, color: "text-green-400", bg: "bg-green-900/20 border-green-900/50" },
-                  { label: "Fiches créées", value: ficheList.length, color: "text-purple-400", bg: "bg-purple-900/20 border-purple-900/50" },
-                ].map((stat, i) => (
-                  <div key={i} className={`${stat.bg} border rounded-2xl p-4 text-center`}>
-                    <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
-                    <p className="text-gray-400 text-xs mt-1">{stat.label}</p>
-                  </div>
-                ))}
+                </div>
               </div>
             </div>
 
