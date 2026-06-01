@@ -72,24 +72,22 @@ export default function HomePage() {
           </button>
         </div>
         <p className="text-gray-600 text-xs">10 messages gratuits par jour — aucune carte requise</p>
-      </main>
 
-      {/* Stats */}
-      <section className="py-8 border-y border-gray-800 bg-[#0d0d14]">
-        <div className="max-w-4xl mx-auto px-8 grid grid-cols-4 gap-6 text-center">
+        {/* Stats inline sous le hero */}
+        <div className="flex items-center gap-6 mt-4 pt-6 border-t border-gray-800 w-full max-w-lg justify-center">
           {[
             { number: "12 000+", label: "Élèves inscrits" },
             { number: "85 000+", label: "Quiz générés" },
             { number: "40 000+", label: "Fiches créées" },
             { number: "4.9/5", label: "Note moyenne" },
           ].map((s, i) => (
-            <div key={i}>
-              <p className="text-2xl font-bold text-white">{s.number}</p>
-              <p className="text-gray-500 text-sm mt-0.5">{s.label}</p>
+            <div key={i} className="text-center">
+              <p className="text-lg font-bold text-white">{s.number}</p>
+              <p className="text-gray-500 text-xs mt-0.5">{s.label}</p>
             </div>
           ))}
         </div>
-      </section>
+      </main>
 
       {/* Démo interactive */}
       <section className="px-8 py-16 max-w-4xl mx-auto w-full">
@@ -272,11 +270,11 @@ export default function HomePage() {
         <h3 className="text-2xl font-bold text-center mb-2">Des tarifs simples et accessibles</h3>
         <p className="text-gray-400 text-sm text-center mb-8">Commence gratuitement, évolue quand tu es prêt</p>
         <div className="grid grid-cols-3 gap-4">
-          {[
+          {([
             { title: "Gratuit", price: "Gratuit", desc: "", features: ["10 messages/jour", "Quiz et fiches", "Flashcards"], cta: "Commencer", pro: false },
             { title: "Élève Pro", price: "9.99€", desc: "/mois", features: ["Messages illimités", "Toutes les fonctionnalités", "Upload de fichiers", "Analyse de photos"], cta: "Passer Pro", pro: true },
             { title: "Enseignant Pro", price: "14.99€", desc: "/mois", features: ["Tout Élève Pro", "Dashboard enseignant", "Créer quiz & fiches", "Gestion des élèves"], cta: "Pour ma classe", pro: false },
-          ].map((plan, i) => (
+          ] as const).map((plan, i) => (
             <div key={i} className={`rounded-2xl p-6 flex flex-col gap-4 border ${plan.pro ? "bg-blue-600 border-blue-500 shadow-xl shadow-blue-900/40 scale-105" : "bg-[#111827] border-gray-800"}`}>
               <div>
                 <p className="font-bold">{plan.title}</p>
