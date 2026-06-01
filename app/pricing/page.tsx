@@ -32,6 +32,7 @@ export default function PricingPage() {
   const plans = [
     {
       name: "Gratuit",
+      badge: "Élève / Prof",
       price: null,
       description: "Pour découvrir Révisio IA",
       features: ["10 messages par jour", "Chat IA de base", "Historique limité"],
@@ -41,6 +42,7 @@ export default function PricingPage() {
     },
     {
       name: "Élève Pro",
+      badge: null,
       price: "9.99",
       description: "Pour les élèves sérieux",
       features: ["Messages illimités", "Quiz automatiques", "Fiches de révision", "Upload de fichiers", "Analyse de photos", "Historique complet"],
@@ -50,6 +52,7 @@ export default function PricingPage() {
     },
     {
       name: "Enseignant Pro",
+      badge: null,
       price: "14.99",
       description: "Pour les enseignants",
       features: ["Tout ce qu'inclut Élève Pro", "Tableau de bord enseignant", "Gestion des élèves", "Statistiques de classe", "Support prioritaire"],
@@ -62,7 +65,6 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-[#0f0f1a] text-white" style={{fontFamily: "system-ui, sans-serif"}}>
 
-      {/* Header */}
       <header className="flex justify-between items-center px-8 py-5 border-b border-gray-800">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push("/")}>
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -76,7 +78,6 @@ export default function PricingPage() {
         </button>
       </header>
 
-      {/* Hero */}
       <div className="text-center py-16 px-6">
         <div className="inline-flex items-center gap-2 bg-blue-950 border border-blue-800 text-blue-300 text-xs px-3 py-1.5 rounded-full mb-6">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="#60a5fa" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -86,7 +87,6 @@ export default function PricingPage() {
         <p className="text-gray-400 text-lg">Commence gratuitement, évolue quand tu es prêt</p>
       </div>
 
-      {/* Plans */}
       <div className="max-w-5xl mx-auto px-6 pb-20 grid grid-cols-3 gap-6">
         {plans.map((plan) => (
           <div key={plan.name} className={`relative rounded-2xl p-6 flex flex-col gap-5 border transition-all ${
@@ -97,6 +97,11 @@ export default function PricingPage() {
             {plan.highlight && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-blue-600 text-xs px-3 py-1 rounded-full font-bold shadow">
                 ⭐ Populaire
+              </div>
+            )}
+            {plan.badge && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-700 text-gray-200 text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap">
+                👤 {plan.badge}
               </div>
             )}
             <div>
@@ -125,7 +130,7 @@ export default function PricingPage() {
             </ul>
             <button
               onClick={() => plan.priceId ? handleSubscribe(plan.priceId) : router.push(userEmail ? "/student" : "/signup")}
-              disabled={loading === plan.priceId}
+              disabled={!!loading && loading === plan.priceId}
               className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
                 plan.highlight
                   ? "bg-white text-blue-600 hover:bg-blue-50 shadow-lg"
@@ -138,7 +143,6 @@ export default function PricingPage() {
         ))}
       </div>
 
-      {/* Garantie */}
       <div className="text-center pb-16 px-6">
         <div className="inline-flex items-center gap-6 bg-[#111827] border border-gray-800 rounded-2xl px-8 py-4">
           <div className="flex items-center gap-2 text-gray-400 text-sm">
@@ -156,7 +160,6 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* Footer */}
       <footer className="text-center text-gray-600 text-xs py-6 border-t border-gray-800">
         © 2025 Révisio IA — Paiements sécurisés par Stripe
       </footer>
