@@ -73,7 +73,7 @@ export default function HomePage() {
         </div>
         <p className="text-gray-600 text-xs">10 messages gratuits par jour — aucune carte requise</p>
 
-        {/* Stats inline sous le hero */}
+        {/* Stats inline */}
         <div className="flex items-center gap-6 mt-4 pt-6 border-t border-gray-800 w-full max-w-lg justify-center">
           {[
             { number: "12 000+", label: "Élèves inscrits" },
@@ -269,27 +269,39 @@ export default function HomePage() {
       <section className="px-8 py-12 max-w-4xl mx-auto w-full">
         <h3 className="text-2xl font-bold text-center mb-2">Des tarifs simples et accessibles</h3>
         <p className="text-gray-400 text-sm text-center mb-8">Commence gratuitement, évolue quand tu es prêt</p>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-6 items-center">
           {([
-            { title: "Gratuit", price: "0$", desc: "", features: ["10 messages/jour", "Quiz et fiches", "Flashcards"], cta: "Commencer", pro: false },
-            { title: "Élève Pro", price: "9.99€", desc: "/mois", features: ["Messages illimités", "Toutes les fonctionnalités", "Upload de fichiers", "Analyse de photos"], cta: "Passer Pro", pro: true },
-            { title: "Enseignant Pro", price: "14.99€", desc: "/mois", features: ["Tout Élève Pro", "Dashboard enseignant", "Créer quiz & fiches", "Gestion des élèves"], cta: "Pour ma classe", pro: false },
+            { title: "Gratuit", price: "0$", period: "", sub: "Pour commencer", features: ["10 messages/jour", "Quiz et fiches", "Flashcards"], cta: "Commencer maintenant", pro: false },
+            { title: "Élève Pro", price: "9.99$", period: "/mois", sub: "Le plus populaire", features: ["Messages illimités", "Toutes les fonctionnalités", "Upload de fichiers", "Analyse de photos"], cta: "Passer Pro", pro: true },
+            { title: "Enseignant Pro", price: "14.99$", period: "/mois", sub: "Pour les classes", features: ["Tout Élève Pro", "Dashboard enseignant", "Créer quiz & fiches", "Gestion des élèves"], cta: "Pour ma classe", pro: false },
           ] as const).map((plan, i) => (
-            <div key={i} className={`rounded-2xl p-6 flex flex-col gap-4 border ${plan.pro ? "bg-blue-600 border-blue-500 shadow-xl shadow-blue-900/40 scale-105" : "bg-[#111827] border-gray-800"}`}>
+            <div key={i} className={`rounded-2xl p-6 flex flex-col gap-4 border relative ${plan.pro ? "bg-gradient-to-b from-blue-600 to-blue-700 border-blue-400 shadow-2xl shadow-blue-900/50 scale-105 z-10" : "bg-[#111827] border-gray-800 hover:border-gray-700 transition-colors"}`}>
+              {plan.pro && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-white text-blue-600 text-xs font-bold px-4 py-1 rounded-full shadow-lg">
+                  ⭐ Populaire
+                </div>
+              )}
               <div>
-                <p className="font-bold">{plan.title}</p>
-                <p className="text-2xl font-bold mt-1">{plan.price}<span className="text-sm font-normal opacity-70">{plan.desc}</span></p>
+                <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${plan.pro ? "text-blue-200" : "text-gray-500"}`}>{plan.sub}</p>
+                <p className="font-bold text-lg">{plan.title}</p>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-4xl font-black">{plan.price}</span>
+                  <span className={`text-sm ${plan.pro ? "text-blue-200" : "text-gray-500"}`}>{plan.period}</span>
+                </div>
               </div>
-              <ul className="flex flex-col gap-2">
+              <div className={`h-px w-full ${plan.pro ? "bg-blue-500" : "bg-gray-800"}`}></div>
+              <ul className="flex flex-col gap-2.5">
                 {plan.features.map((f, j) => (
                   <li key={j} className="text-sm flex items-center gap-2">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    {f}
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${plan.pro ? "bg-white/20" : "bg-blue-900"}`}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={plan.pro ? "white" : "#60a5fa"} strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span className={plan.pro ? "text-white" : "text-gray-300"}>{f}</span>
                   </li>
                 ))}
               </ul>
-              <button onClick={() => router.push("/signup")} className={`rounded-xl py-2.5 text-sm font-semibold transition-colors mt-auto ${plan.pro ? "bg-white text-blue-600 hover:bg-gray-100" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
-                {plan.cta}
+              <button onClick={() => router.push("/signup")} className={`rounded-xl py-3 text-sm font-bold transition-all mt-2 ${plan.pro ? "bg-white text-blue-600 hover:bg-blue-50 shadow-lg" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
+                {plan.cta} →
               </button>
             </div>
           ))}
