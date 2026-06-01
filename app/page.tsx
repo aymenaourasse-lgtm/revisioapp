@@ -80,10 +80,10 @@ export default function HomePage() {
 
         <div className="flex gap-2 justify-center mb-6">
           {[
-            { key: "chat", label: "💬 Chat IA" },
-            { key: "quiz", label: "❓ Quiz" },
-            { key: "fiche", label: "📄 Fiche" },
-            { key: "flashcard", label: "🃏 Flashcard" },
+            { key: "chat", label: "Chat IA" },
+            { key: "quiz", label: "Quiz" },
+            { key: "fiche", label: "Fiche" },
+            { key: "flashcard", label: "Flashcard" },
           ].map(tab => (
             <button key={tab.key} onClick={() => { setDemoTab(tab.key as any); setCardFlipped(false); }}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${demoTab === tab.key ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40" : "bg-[#1a1a2e] text-gray-400 hover:text-white border border-gray-800"}`}>
