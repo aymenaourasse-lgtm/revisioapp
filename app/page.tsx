@@ -273,4 +273,47 @@ export default function HomePage() {
         <p className="text-gray-400 text-sm text-center mb-8">Commence gratuitement, évolue quand tu es prêt</p>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { title: "Gratuit", price: "Gratuit", desc: "", features: ["10 messages/jour", "Quiz et fiches", "Flashcards"], cta: "Commencer", pro: fal
+            { title: "Gratuit", price: "Gratuit", desc: "", features: ["10 messages/jour", "Quiz et fiches", "Flashcards"], cta: "Commencer", pro: false },
+            { title: "Élève Pro", price: "9.99€", desc: "/mois", features: ["Messages illimités", "Toutes les fonctionnalités", "Upload de fichiers", "Analyse de photos"], cta: "Passer Pro", pro: true },
+            { title: "Enseignant Pro", price: "14.99€", desc: "/mois", features: ["Tout Élève Pro", "Dashboard enseignant", "Créer quiz & fiches", "Gestion des élèves"], cta: "Pour ma classe", pro: false },
+          ].map((plan, i) => (
+            <div key={i} className={`rounded-2xl p-6 flex flex-col gap-4 border ${plan.pro ? "bg-blue-600 border-blue-500 shadow-xl shadow-blue-900/40 scale-105" : "bg-[#111827] border-gray-800"}`}>
+              <div>
+                <p className="font-bold">{plan.title}</p>
+                <p className="text-2xl font-bold mt-1">{plan.price}<span className="text-sm font-normal opacity-70">{plan.desc}</span></p>
+              </div>
+              <ul className="flex flex-col gap-2">
+                {plan.features.map((f, j) => (
+                  <li key={j} className="text-sm flex items-center gap-2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button onClick={() => router.push("/signup")} className={`rounded-xl py-2.5 text-sm font-semibold transition-colors mt-auto ${plan.pro ? "bg-white text-blue-600 hover:bg-gray-100" : "bg-blue-600 hover:bg-blue-500 text-white"}`}>
+                {plan.cta}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA final */}
+      <section className="text-center py-16 px-6 border-t border-gray-800 bg-[#0d0d14]">
+        <h3 className="text-3xl font-bold mb-3">Prêt à mieux réviser ?</h3>
+        <p className="text-gray-400 text-sm mb-6">Rejoins plus de 12 000 élèves qui utilisent Révisio IA.</p>
+        <button onClick={() => router.push("/signup")} className="bg-blue-600 hover:bg-blue-500 px-8 py-3 rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-blue-900/40">
+          Commencer gratuitement →
+        </button>
+        <p className="text-gray-600 text-xs mt-3">Aucune carte requise · Annulation à tout moment</p>
+      </section>
+
+      {/* Footer */}
+      <footer className="text-center text-gray-600 text-xs py-6 border-t border-gray-800 flex items-center justify-center gap-6">
+        <span>© 2025 Révisio IA</span>
+        <button onClick={() => router.push("/pricing")} className="hover:text-gray-400 transition-colors">Tarifs</button>
+        <button onClick={() => router.push("/login")} className="hover:text-gray-400 transition-colors">Connexion</button>
+      </footer>
+    </div>
+  );
+}
