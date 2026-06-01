@@ -32,7 +32,7 @@ export default function PricingPage() {
   const plans = [
     {
       name: "Gratuit",
-      badge: "Élève / Prof",
+      badge: "Élève / Enseignant",
       price: null,
       description: "Pour découvrir Révisio IA",
       features: ["10 messages par jour", "Chat IA de base", "Historique limité"],
