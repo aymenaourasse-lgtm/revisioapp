@@ -392,53 +392,55 @@ export default function TeacherPage() {
         {/* Profil */}
         {activeTab === "profil" && (
           <div className="p-8 flex flex-col gap-6 max-w-2xl">
-            <h2 className="text-2xl font-semibold">Mon profil</h2>
+
+            {/* Header */}
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-800 flex items-center justify-center text-2xl font-black shadow-lg shadow-purple-900/40">{initials}</div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">{email}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                  <span className="text-sm text-purple-400 font-medium">Enseignant Pro · Actif</span>
+                </div>
+              </div>
+            </div>
 
             {/* Infos compte */}
             <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
-              <h3 className="font-semibold text-sm text-gray-300 uppercase tracking-wider">Informations du compte</h3>
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-purple-700 flex items-center justify-center text-xl font-bold">{initials}</div>
-                <div>
-                  <p className="font-semibold text-white">{email}</p>
-                  <p className="text-purple-400 text-sm">Enseignant Pro</p>
-                </div>
+              <div className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <h3 className="font-semibold text-sm text-white">Informations du compte</h3>
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
-                  <p className="text-gray-500 text-xs mb-1">Email</p>
-                  <p className="text-sm text-white truncate">{email}</p>
-                </div>
-                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
-                  <p className="text-gray-500 text-xs mb-1">Rôle</p>
-                  <p className="text-sm text-white">Enseignant</p>
-                </div>
-                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
-                  <p className="text-gray-500 text-xs mb-1">Abonnement</p>
-                  <p className="text-sm text-purple-400 font-medium">Enseignant Pro</p>
-                </div>
-                <div className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3">
-                  <p className="text-gray-500 text-xs mb-1">Statut</p>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                    <p className="text-sm text-green-400">Actif</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Email", value: email },
+                  { label: "Rôle", value: "Enseignant" },
+                  { label: "Abonnement", value: "Enseignant Pro", purple: true },
+                  { label: "Statut", value: "Actif", green: true },
+                ].map((item: any, i) => (
+                  <div key={i} className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-3.5">
+                    <p className="text-gray-500 text-xs mb-1">{item.label}</p>
+                    <p className={`text-sm font-medium truncate ${item.purple ? "text-purple-400" : item.green ? "text-green-400" : "text-white"}`}>{item.value}</p>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
 
             {/* Stats */}
             <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
-              <h3 className="font-semibold text-sm text-gray-300 uppercase tracking-wider">Statistiques</h3>
+              <div className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <h3 className="font-semibold text-sm text-white">Statistiques</h3>
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: "Élèves", value: eleves.length, color: "text-blue-400" },
-                  { label: "Quiz créés", value: quizList.length, color: "text-green-400" },
-                  { label: "Fiches créées", value: ficheList.length, color: "text-purple-400" },
+                  { label: "Élèves", value: eleves.length, color: "text-blue-400", bg: "bg-blue-900/20 border-blue-900/50" },
+                  { label: "Quiz créés", value: quizList.length, color: "text-green-400", bg: "bg-green-900/20 border-green-900/50" },
+                  { label: "Fiches créées", value: ficheList.length, color: "text-purple-400", bg: "bg-purple-900/20 border-purple-900/50" },
                 ].map((stat, i) => (
-                  <div key={i} className="bg-[#0f0f1a] border border-gray-800 rounded-xl p-4 text-center">
-                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                    <p className="text-gray-500 text-xs mt-1">{stat.label}</p>
+                  <div key={i} className={`${stat.bg} border rounded-2xl p-4 text-center`}>
+                    <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
+                    <p className="text-gray-400 text-xs mt-1">{stat.label}</p>
                   </div>
                 ))}
               </div>
@@ -446,35 +448,43 @@ export default function TeacherPage() {
 
             {/* Changer mot de passe */}
             <div className="bg-[#1a1a2e] border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
-              <h3 className="font-semibold text-sm text-gray-300 uppercase tracking-wider">Changer le mot de passe</h3>
+              <div className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <h3 className="font-semibold text-sm text-white">Changer le mot de passe</h3>
+              </div>
               <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="Mot de passe actuel"
-                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors" />
+                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors placeholder-gray-600 text-white" />
               <input type="password" value={newPasswordVal} onChange={(e) => setNewPasswordVal(e.target.value)}
                 placeholder="Nouveau mot de passe"
-                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors" />
+                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors placeholder-gray-600 text-white" />
               <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirmer le nouveau mot de passe"
-                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors" />
+                className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-purple-500 transition-colors placeholder-gray-600 text-white" />
               {passwordMsg && (
-                <p className={`text-xs ${passwordMsg.includes("succès") ? "text-green-400" : "text-red-400"}`}>{passwordMsg}</p>
+                <p className={`text-xs px-1 ${passwordMsg.includes("succès") ? "text-green-400" : "text-red-400"}`}>{passwordMsg}</p>
               )}
               <button onClick={handleChangePassword} disabled={passwordLoading || !oldPassword || !newPasswordVal || !confirmPassword}
-                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">
-                {passwordLoading ? "Changement…" : "Changer le mot de passe"}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-xl py-3 text-sm font-semibold transition-colors shadow-lg shadow-purple-900/30">
+                {passwordLoading ? "Changement en cours…" : "Mettre à jour le mot de passe"}
               </button>
             </div>
 
-            {/* Annuler abonnement */}
+            {/* Zone dangereuse */}
             <div className="bg-[#1a1a2e] border border-red-900/50 rounded-2xl p-6 flex flex-col gap-4">
-              <h3 className="font-semibold text-sm text-red-400 uppercase tracking-wider">Zone dangereuse</h3>
-              <p className="text-gray-400 text-sm">L'annulation de ton abonnement prendra effet à la fin de la période de facturation en cours.</p>
+              <div className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <h3 className="font-semibold text-sm text-red-400">Zone dangereuse</h3>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed">L'annulation de ton abonnement prendra effet à la fin de la période de facturation en cours. Tu conserveras l'accès jusqu'à cette date.</p>
               {cancelSuccess ? (
-                <p className="text-green-400 text-sm">Abonnement annulé avec succès.</p>
+                <div className="bg-green-900/20 border border-green-800 rounded-xl px-4 py-3">
+                  <p className="text-green-400 text-sm font-medium">Abonnement annulé avec succès.</p>
+                </div>
               ) : (
                 <button onClick={handleCancelSubscription} disabled={cancelLoading}
-                  className="bg-red-900/40 hover:bg-red-900/60 border border-red-800 text-red-400 rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-50">
-                  {cancelLoading ? "Annulation…" : "Annuler mon abonnement"}
+                  className="bg-red-900/30 hover:bg-red-900/50 border border-red-800/50 text-red-400 rounded-xl py-3 text-sm font-semibold transition-all disabled:opacity-50">
+                  {cancelLoading ? "Annulation en cours…" : "Annuler mon abonnement"}
                 </button>
               )}
             </div>
