@@ -271,7 +271,7 @@ export default function HomePage() {
         <p className="text-gray-400 text-sm text-center mb-8">Commence gratuitement, évolue quand tu es prêt</p>
         <div className="grid grid-cols-3 gap-4">
           {([
-            { title: "Gratuit", price: "Gratuit", desc: "", features: ["10 messages/jour", "Quiz et fiches", "Flashcards"], cta: "Commencer", pro: false },
+            { title: "Gratuit", price: "0$", desc: "", features: ["10 messages/jour", "Quiz et fiches", "Flashcards"], cta: "Commencer", pro: false },
             { title: "Élève Pro", price: "9.99€", desc: "/mois", features: ["Messages illimités", "Toutes les fonctionnalités", "Upload de fichiers", "Analyse de photos"], cta: "Passer Pro", pro: true },
             { title: "Enseignant Pro", price: "14.99€", desc: "/mois", features: ["Tout Élève Pro", "Dashboard enseignant", "Créer quiz & fiches", "Gestion des élèves"], cta: "Pour ma classe", pro: false },
           ] as const).map((plan, i) => (
