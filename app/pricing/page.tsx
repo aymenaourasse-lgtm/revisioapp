@@ -57,7 +57,7 @@ export default function PricingPage() {
       badge: null,
       sub: "Pour les classes",
       price: "14.99",
-      description: "Pour les enseignants",
+      description: "Facilite ton travail d'enseignant",
       features: ["Tout ce qu'inclut Élève Pro", "Tableau de bord enseignant", "Gestion des élèves", "Statistiques de classe", "Support prioritaire"],
       priceId: process.env.NEXT_PUBLIC_STRIPE_TEACHER_PRICE_ID,
       cta: "Pour ma classe",
