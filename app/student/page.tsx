@@ -42,6 +42,7 @@ export default function StudentPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [activeQuiz, setActiveQuiz] = useState<QuizQuestion[] | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -155,6 +156,7 @@ export default function StudentPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setPdfLoading(true);
     if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
       const text = await extractPdfText(file);
       setFileContent(text);
@@ -163,6 +165,7 @@ export default function StudentPage() {
       reader.onload = (ev) => setFileContent((ev.target?.result as string).slice(0, 8000));
       reader.readAsText(file);
     }
+    setPdfLoading(false);
   };
 
   const handleQuizImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -642,10 +645,10 @@ export default function StudentPage() {
               </div>
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
-                <button onClick={handleGenerateQuiz} disabled={!currentId}
+                <button onClick={handleGenerateQuiz} disabled={!currentId || pdfLoading}
                   className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  Générer
+                  {pdfLoading ? "Lecture du fichier…" : "Générer"}
                 </button>
               </div>
               {!currentId && <p className="text-red-400 text-xs text-center -mt-2">Crée un nouveau chat d'abord</p>}
