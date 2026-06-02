@@ -264,10 +264,10 @@ export default function StudentPage() {
             <div className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
               <div className="flex justify-between items-center">
                 <span className="text-gray-400 text-xs">Messages aujourd'hui</span>
-                <span className={`text-xs font-medium ${remaining <= 3 ? "text-red-400" : "text-gray-300"}`}>{messageCount}/{FREE_LIMIT}</span>
+                <span className={`text-xs font-medium ${remaining <= 5 ? "text-red-400" : "text-gray-300"}`}>{messageCount}/{FREE_LIMIT}</span>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-1.5">
-                <div className={`h-1.5 rounded-full transition-all ${remaining <= 3 ? "bg-red-500" : "bg-blue-500"}`} style={{width: `${(messageCount / FREE_LIMIT) * 100}%`}}></div>
+                <div className={`h-1.5 rounded-full transition-all ${remaining <= 5 ? "bg-red-500" : "bg-blue-500"}`} style={{width: `${(messageCount / FREE_LIMIT) * 100}%`}}></div>
               </div>
               <button onClick={() => router.push("/pricing")} className="text-blue-400 text-xs hover:underline text-center">Passer à Pro — illimité</button>
             </div>
@@ -412,30 +412,81 @@ export default function StudentPage() {
         </div>
       )}
 
+      {/* Modal Quiz — redesigné */}
       {showQuiz && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Générer un quiz</h2>
-              <button onClick={() => setShowQuiz(false)} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-700">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f0f1a] border border-gray-700/50 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            {/* Header avec gradient */}
+            <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/10 border-b border-gray-800 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-white">Générer un quiz</h2>
+                  <p className="text-gray-500 text-xs">Teste tes connaissances avec l'IA</p>
+                </div>
+              </div>
+              <button onClick={() => setShowQuiz(false)} className="text-gray-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-800 transition-colors">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            {fileName && <div className="text-blue-300 text-xs bg-blue-950 border border-blue-800 px-3 py-2 rounded-lg">Basé sur : {fileName}</div>}
-            <input value={quizSubject} onChange={(e) => setQuizSubject(e.target.value)}
-              placeholder={fileName ? "Sujet précis (optionnel)" : "Matière (ex: la photosynthèse)"}
-              className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-gray-400 text-xs font-medium">Nombre de questions</label>
-              <select value={quizNum} onChange={(e) => setQuizNum(e.target.value)} className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none">
-                <option value="3">3 questions</option>
-                <option value="5">5 questions</option>
-                <option value="10">10 questions</option>
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
-              <button onClick={handleGenerateQuiz} disabled={!currentId} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">Générer</button>
+
+            <div className="p-6 flex flex-col gap-5">
+              {/* Fichier détecté */}
+              {fileName && (
+                <div className="flex items-center gap-2 bg-blue-950/50 border border-blue-800/50 px-3 py-2.5 rounded-xl">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span className="text-blue-300 text-xs">Basé sur : {fileName}</span>
+                </div>
+              )}
+
+              {/* Sujet */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Sujet</label>
+                <input
+                  value={quizSubject}
+                  onChange={(e) => setQuizSubject(e.target.value)}
+                  placeholder={fileName ? "Sujet précis (optionnel)" : "Ex: la photosynthèse, la 2e guerre mondiale…"}
+                  className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white"
+                />
+              </div>
+
+              {/* Nombre de questions en boutons */}
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Nombre de questions</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {["3", "5", "10", "15"].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setQuizNum(n)}
+                      className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
+                        quizNum === n
+                          ? "bg-blue-600 text-white border border-blue-500"
+                          : "bg-[#1a1a2e] text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Boutons */}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">
+                  Annuler
+                </button>
+                <button
+                  onClick={handleGenerateQuiz}
+                  disabled={!currentId}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Générer
+                </button>
+              </div>
+              {!currentId && <p className="text-red-400 text-xs text-center -mt-2">Crée un nouveau chat d'abord</p>}
             </div>
           </div>
         </div>
