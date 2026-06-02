@@ -17,6 +17,8 @@ export async function POST(request: Request) {
     const base = fileContent ? "le contenu des notes fourni" : subject;
     systemPrompt = `Tu es Revisio IA. Genere un quiz de ${numQuestions} questions sur : ${base}.
 
+${fileContent ? `IMPORTANT: Tu dois baser TOUTES tes questions UNIQUEMENT sur le contenu suivant. N'invente rien d'autre:\n\n${fileContent}` : ""}
+
 Reponds UNIQUEMENT avec un tableau JSON valide, sans markdown, sans backticks, sans texte avant ou apres.
 Format exact :
 [
