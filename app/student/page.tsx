@@ -34,6 +34,7 @@ export default function StudentPage() {
   const [showResume, setShowResume] = useState(false);
   const [quizSubject, setQuizSubject] = useState("");
   const [quizNum, setQuizNum] = useState("5");
+  const [quizDifficulty, setQuizDifficulty] = useState("general");
   const [ficheSubject, setFicheSubject] = useState("");
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -42,9 +43,9 @@ export default function StudentPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [activeQuiz, setActiveQuiz] = useState<QuizQuestion[] | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
   const quizFileRef = useRef<HTMLInputElement>(null);
@@ -214,7 +215,7 @@ export default function StudentPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string) => {
+  const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string, difficulty?: string) => {
     const text = overrideInput ?? input;
     if ((!text.trim() && !imageBase64 && mode !== "resume") || !currentId) return;
     const canSend = await checkAndIncrementCount();
@@ -231,7 +232,7 @@ export default function StudentPage() {
     setMessages(updated); setInput(""); setLoading(true);
     setActiveQuiz(null); setQuizAnswers([]); setQuizSubmitted(false);
     const body: any = { messages: updated };
-    if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; }
+    if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; body.difficulty = difficulty; }
     if (mode === "fiche") { body.mode = "fiche"; body.subject = subject; }
     if (mode === "resume") { body.mode = "resume"; }
     if (fileContent) body.fileContent = fileContent;
@@ -270,7 +271,7 @@ export default function StudentPage() {
     if (!currentId) return;
     setShowQuiz(false);
     const subject = quizSubject || (fileContent ? "le contenu du fichier fourni" : "mes notes");
-    await handleSend("quiz", "quiz", subject, quizNum);
+    await handleSend("quiz", "quiz", subject, quizNum, quizDifficulty);
     setQuizSubject("");
   };
 
@@ -292,11 +293,16 @@ export default function StudentPage() {
   };
 
   const handleQuizSubmit = () => setQuizSubmitted(true);
-
   const quizScore = activeQuiz ? activeQuiz.filter((q, i) => quizAnswers[i] === q.correct).length : 0;
-
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
   const remaining = FREE_LIMIT - messageCount;
+
+  const difficultyLabels: Record<string, string> = {
+    general: "🟢 Général",
+    avance: "🟡 Avancé",
+    precis: "🟠 Précis",
+    examen: "🔴 Examen",
+  };
 
   const renderMessage = (m: Message, i: number) => {
     if (m.role === "assistant" && m.content === "__QUIZ__" && activeQuiz) {
@@ -311,6 +317,7 @@ export default function StudentPage() {
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800 bg-blue-600/10">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Quiz généré par IA</span>
+              <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">{difficultyLabels[quizDifficulty]}</span>
               <span className="ml-auto text-gray-500 text-xs">{activeQuiz.length} questions</span>
             </div>
             <div className="p-4 flex flex-col gap-6">
@@ -323,9 +330,7 @@ export default function StudentPage() {
                       const isCorrect = ai === q.correct;
                       let cls = "text-left px-3 py-2.5 rounded-xl text-sm border transition-all ";
                       if (!quizSubmitted) {
-                        cls += isSelected
-                          ? "border-blue-500 bg-blue-600/20 text-white"
-                          : "border-gray-700 bg-[#0f0f1a] text-gray-300 hover:border-gray-500 hover:text-white";
+                        cls += isSelected ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#0f0f1a] text-gray-300 hover:border-gray-500 hover:text-white";
                       } else {
                         if (isCorrect) cls += "border-green-500 bg-green-900/30 text-green-300";
                         else if (isSelected && !isCorrect) cls += "border-red-500 bg-red-900/30 text-red-300";
@@ -342,8 +347,7 @@ export default function StudentPage() {
                 </div>
               ))}
               {!quizSubmitted ? (
-                <button onClick={handleQuizSubmit}
-                  disabled={quizAnswers.some(a => a === null)}
+                <button onClick={handleQuizSubmit} disabled={quizAnswers.some(a => a === null)}
                   className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2">
                   Soumettre mes réponses
                 </button>
@@ -620,18 +624,40 @@ export default function StudentPage() {
               ) : (
                 <div className="flex items-center justify-between bg-blue-950/50 border border-blue-800/50 px-4 py-3 rounded-xl">
                   <div className="flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span className="text-blue-300 text-xs font-medium">{fileName} — prêt ✓</span>
+                    {pdfLoading ? <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin"></div> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>}
+                    <span className="text-blue-300 text-xs font-medium">{pdfLoading ? "Lecture du fichier…" : `${fileName} — prêt ✓`}</span>
                   </div>
                   <button onClick={() => { setFileContent(null); setFileName(null); setImageBase64(null); }} className="text-gray-500 hover:text-red-400 text-xs transition-colors">Retirer</button>
                 </div>
               )}
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">{fileName ? "Sujet précis (optionnel)" : "Sujet"}</label>
                 <input value={quizSubject} onChange={(e) => setQuizSubject(e.target.value)}
                   placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la 2e guerre mondiale…"}
                   className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
               </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Niveau de difficulté</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "general", label: "🟢 Général", desc: "Concepts de base" },
+                    { id: "avance", label: "🟡 Avancé", desc: "Liens entre idées" },
+                    { id: "precis", label: "🟠 Précis", desc: "Détails & chiffres" },
+                    { id: "examen", label: "🔴 Examen", desc: "Niveau exam, pièges" },
+                  ].map((d) => (
+                    <button key={d.id} onClick={() => setQuizDifficulty(d.id)}
+                      className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${
+                        quizDifficulty === d.id ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"
+                      }`}>
+                      <span className="font-medium text-xs">{d.label}</span>
+                      <span className="text-xs opacity-60 mt-0.5">{d.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Nombre de questions</label>
                 <div className="grid grid-cols-4 gap-2">
@@ -643,12 +669,13 @@ export default function StudentPage() {
                   ))}
                 </div>
               </div>
+
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
                 <button onClick={handleGenerateQuiz} disabled={!currentId || pdfLoading}
                   className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  {pdfLoading ? "Lecture du fichier…" : "Générer"}
+                  {pdfLoading ? "Lecture…" : "Générer"}
                 </button>
               </div>
               {!currentId && <p className="text-red-400 text-xs text-center -mt-2">Crée un nouveau chat d'abord</p>}

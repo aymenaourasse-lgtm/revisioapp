@@ -5,7 +5,7 @@ const client = new OpenAI({
 });
 
 export async function POST(request: Request) {
-  const { messages, mode, subject, numQuestions, fileContent, imageBase64 } = await request.json();
+  const { messages, mode, subject, numQuestions, fileContent, imageBase64, difficulty } = await request.json();
 
   let systemPrompt = "Tu es Revisio IA, un assistant scolaire. Reponds toujours en francais. Explique simplement et etape par etape.";
 
@@ -15,7 +15,19 @@ export async function POST(request: Request) {
 
   if (mode === "quiz") {
     const base = fileContent ? "le contenu des notes fourni" : subject;
+
+    const difficultyInstructions: Record<string, string> = {
+      general: `NIVEAU GENERAL : Questions simples sur les concepts de base. Vocabulaire accessible. Les reponses incorrectes doivent etre evidemment fausses. Ideal pour une premiere revision.`,
+      avance: `NIVEAU AVANCE : Questions sur des concepts plus approfondis. Necessite de comprendre les liens entre les idees. Les reponses incorrectes sont plausibles mais incorrectes.`,
+      precis: `NIVEAU PRECIS : Questions tres specifiques avec des details precis (chiffres, dates, mecanismes exacts). Les reponses incorrectes sont tres proches de la bonne reponse.`,
+      examen: `NIVEAU EXAMEN : Questions complexes comme un vrai examen. Inclure des pieges subtils. Les reponses incorrectes sont tres plausibles. Tester la comprehension profonde et la capacite d'analyse.`,
+    };
+
+    const diffLevel = difficultyInstructions[difficulty ?? "general"];
+
     systemPrompt = `Tu es Revisio IA. Genere un quiz de ${numQuestions} questions sur : ${base}.
+
+${diffLevel}
 
 ${fileContent ? `IMPORTANT: Tu dois baser TOUTES tes questions UNIQUEMENT sur le contenu suivant. N'invente rien d'autre:\n\n${fileContent}` : ""}
 
