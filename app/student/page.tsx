@@ -13,7 +13,7 @@ import { logOut, onAuthChange } from "../auth";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; messages: Message[] };
-type QuizQuestion = { question: string; options: string[]; correct: number };
+type QuizQuestion = { question: string; options: string[]; correct: number; explanation?: string };
 
 const FREE_LIMIT = 50;
 
@@ -344,6 +344,17 @@ export default function StudentPage() {
                       );
                     })}
                   </div>
+                  {/* Explication après soumission */}
+                  {quizSubmitted && q.explanation && (
+                    <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs border ${
+                      quizAnswers[qi] === q.correct
+                        ? "bg-green-900/20 border-green-800/50 text-green-300"
+                        : "bg-orange-900/20 border-orange-800/50 text-orange-300"
+                    }`}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      <span>{q.explanation}</span>
+                    </div>
+                  )}
                 </div>
               ))}
               {!quizSubmitted ? (

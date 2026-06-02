@@ -37,10 +37,12 @@ Format exact :
   {
     "question": "Question ici ?",
     "options": ["Reponse A", "Reponse B", "Reponse C", "Reponse D"],
-    "correct": 0
+    "correct": 0,
+    "explanation": "Explication courte et claire de pourquoi cette reponse est correcte."
   }
 ]
 "correct" est l index (0,1,2,3) de la bonne reponse dans options.
+"explanation" est une phrase courte expliquant pourquoi la bonne reponse est correcte.
 Genere exactement ${numQuestions} questions.`;
   }
 
