@@ -2,16 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, where, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, addDoc, deleteDoc, doc, serverTimestamp, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../firestore";
 import { onAuthChange } from "../../auth";
 
 type Flashcard = { front: string; back: string };
 type FlashcardSet = { id: string; title: string; cards: Flashcard[]; createdAt: any };
 
+const FLASHCARD_LIMIT = 10;
+
 export default function FlashcardsPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
+  const [isPro, setIsPro] = useState(false);
+  const [flashcardCount, setFlashcardCount] = useState(0);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [currentSet, setCurrentSet] = useState<FlashcardSet | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -44,9 +49,30 @@ export default function FlashcardsPage() {
       const q = query(collection(db, "flashcard_sets"), where("userId", "==", userId));
       const snap = await getDocs(q);
       setSets(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FlashcardSet)));
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setIsPro(data.plan === "pro");
+        const today = new Date().toDateString();
+        if (data.lastFlashcardDate === today) {
+          setFlashcardCount(data.flashcardCount ?? 0);
+        } else {
+          setFlashcardCount(0);
+        }
+      }
     };
     load();
   }, [userId]);
+
+  const checkAndIncrementFlashcardCount = async () => {
+    if (isPro) return true;
+    if (flashcardCount >= FLASHCARD_LIMIT) { setShowLimitModal(true); return false; }
+    const today = new Date().toDateString();
+    const newCount = flashcardCount + 1;
+    setFlashcardCount(newCount);
+    await setDoc(doc(db, "users", userId!), { flashcardCount: newCount, lastFlashcardDate: today }, { merge: true });
+    return true;
+  };
 
   const generateQCM = (cards: Flashcard[], index: number) => {
     const correct = cards[index].back;
@@ -60,6 +86,8 @@ export default function FlashcardsPage() {
 
   const handleGenerate = async () => {
     if (!userId) return;
+    const canGenerate = await checkAndIncrementFlashcardCount();
+    if (!canGenerate) return;
     setGenerating(true);
     const res = await fetch("/api/flashcards", {
       method: "POST",
@@ -118,11 +146,7 @@ export default function FlashcardsPage() {
 
   const nextCard = () => {
     const next = currentIndex + 1;
-    if (next >= currentSet!.cards.length) {
-      setMode("home");
-      setCurrentSet(null);
-      return;
-    }
+    if (next >= currentSet!.cards.length) { setMode("home"); setCurrentSet(null); return; }
     setCurrentIndex(next);
     setFlipped(false);
     if (mode === "qcm") generateQCM(currentSet!.cards, next);
@@ -137,10 +161,10 @@ export default function FlashcardsPage() {
     setMode(reviewMode);
   };
 
+  const remaining = FLASHCARD_LIMIT - flashcardCount;
+
   return (
     <div className="flex h-screen bg-[#0d0d14] text-white" style={{ fontFamily: "system-ui, sans-serif" }}>
-
-      {/* Sidebar */}
       <aside className="w-64 bg-[#0d0d14] border-r border-gray-800 flex flex-col">
         <div className="p-5 border-b border-gray-800">
           <div className="flex items-center gap-2">
@@ -153,7 +177,6 @@ export default function FlashcardsPage() {
             </div>
           </div>
         </div>
-
         <div className="p-3 flex flex-col gap-1">
           <button onClick={() => router.push("/student")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -164,7 +187,6 @@ export default function FlashcardsPage() {
             Flashcards
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto px-2 pb-2">
           <p className="text-gray-600 text-xs px-3 py-2 uppercase tracking-wider">Mes sets</p>
           {sets.length === 0 && <p className="text-gray-600 text-xs text-center mt-4">Aucun set créé</p>}
@@ -179,12 +201,29 @@ export default function FlashcardsPage() {
             </div>
           ))}
         </div>
+        {!isPro && (
+          <div className="px-3 pb-2">
+            <div className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-xs">Générations aujourd'hui</span>
+                <span className={`text-xs font-medium ${remaining <= 2 ? "text-red-400" : "text-gray-300"}`}>{flashcardCount}/{FLASHCARD_LIMIT}</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div className={`h-1.5 rounded-full transition-all ${remaining <= 2 ? "bg-red-500" : "bg-blue-500"}`} style={{ width: `${(flashcardCount / FLASHCARD_LIMIT) * 100}%` }}></div>
+              </div>
+              <button onClick={() => router.push("/pricing")} className="text-blue-400 text-xs hover:underline text-center">Passer à Pro — illimité</button>
+            </div>
+          </div>
+        )}
+        <div className="p-3 border-t border-gray-800">
+          <button onClick={() => router.push("/student/profile")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profil
+          </button>
+        </div>
       </aside>
 
-      {/* Main */}
       <main className="flex-1 flex flex-col bg-[#0f0f1a]">
-
-        {/* Home */}
         {mode === "home" && (
           <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center">
@@ -199,9 +238,7 @@ export default function FlashcardsPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                 Générer avec l'IA
               </button>
-              <button onClick={() => setMode("create")} className="bg-gray-800 hover:bg-gray-700 px-5 py-2.5 rounded-xl text-sm font-medium transition-colors">
-                Créer manuellement
-              </button>
+              <button onClick={() => setMode("create")} className="bg-gray-800 hover:bg-gray-700 px-5 py-2.5 rounded-xl text-sm font-medium transition-colors">Créer manuellement</button>
             </div>
             {sets.length > 0 && (
               <div className="w-full max-w-2xl">
@@ -214,12 +251,8 @@ export default function FlashcardsPage() {
                         <p className="text-gray-500 text-xs mt-0.5">{s.cards.length} cartes</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => startReview(s, "review")} className="flex-1 bg-blue-600 hover:bg-blue-500 rounded-lg py-1.5 text-xs font-medium transition-colors">
-                          Recto/Verso
-                        </button>
-                        <button onClick={() => startReview(s, "qcm")} className="flex-1 bg-gray-700 hover:bg-gray-600 rounded-lg py-1.5 text-xs font-medium transition-colors">
-                          QCM
-                        </button>
+                        <button onClick={() => startReview(s, "review")} className="flex-1 bg-blue-600 hover:bg-blue-500 rounded-lg py-1.5 text-xs font-medium transition-colors">Recto/Verso</button>
+                        <button onClick={() => startReview(s, "qcm")} className="flex-1 bg-gray-700 hover:bg-gray-600 rounded-lg py-1.5 text-xs font-medium transition-colors">QCM</button>
                       </div>
                     </div>
                   ))}
@@ -229,7 +262,6 @@ export default function FlashcardsPage() {
           </div>
         )}
 
-        {/* Review recto/verso */}
         {mode === "review" && currentSet && (
           <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
             <div className="flex items-center justify-between w-full max-w-lg">
@@ -239,27 +271,19 @@ export default function FlashcardsPage() {
               </button>
               <p className="text-gray-400 text-sm">{currentIndex + 1} / {currentSet.cards.length}</p>
             </div>
-
             <div className="w-full max-w-lg">
               <div className="w-full bg-gray-800 rounded-full h-1.5 mb-6">
                 <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${((currentIndex + 1) / currentSet.cards.length) * 100}%` }}></div>
               </div>
-
-              {/* Carte flip */}
               <div onClick={() => setFlipped(!flipped)} className="cursor-pointer bg-[#1a1a2e] border border-gray-700 rounded-2xl p-8 min-h-48 flex flex-col items-center justify-center gap-4 hover:border-blue-600 transition-colors">
                 <p className="text-xs text-gray-500 uppercase tracking-wider">{flipped ? "Réponse" : "Question"}</p>
-                <p className="text-lg text-center font-medium leading-relaxed">
-                  {flipped ? currentSet.cards[currentIndex].back : currentSet.cards[currentIndex].front}
-                </p>
+                <p className="text-lg text-center font-medium leading-relaxed">{flipped ? currentSet.cards[currentIndex].back : currentSet.cards[currentIndex].front}</p>
                 {!flipped && <p className="text-gray-600 text-xs mt-2">Clique pour révéler</p>}
               </div>
             </div>
-
             <div className="flex gap-3">
               {currentIndex > 0 && (
-                <button onClick={() => { setCurrentIndex(currentIndex - 1); setFlipped(false); }} className="bg-gray-800 hover:bg-gray-700 px-5 py-2.5 rounded-xl text-sm transition-colors">
-                  ← Précédent
-                </button>
+                <button onClick={() => { setCurrentIndex(currentIndex - 1); setFlipped(false); }} className="bg-gray-800 hover:bg-gray-700 px-5 py-2.5 rounded-xl text-sm transition-colors">← Précédent</button>
               )}
               <button onClick={nextCard} className="bg-blue-600 hover:bg-blue-500 px-5 py-2.5 rounded-xl text-sm font-medium transition-colors">
                 {currentIndex + 1 >= currentSet.cards.length ? "Terminer ✓" : "Suivant →"}
@@ -268,7 +292,6 @@ export default function FlashcardsPage() {
           </div>
         )}
 
-        {/* QCM */}
         {mode === "qcm" && currentSet && (
           <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
             <div className="flex items-center justify-between w-full max-w-lg">
@@ -278,17 +301,14 @@ export default function FlashcardsPage() {
               </button>
               <p className="text-gray-400 text-sm">Score : {score}/{currentIndex + (qcmAnswer ? 1 : 0)} — {currentIndex + 1}/{currentSet.cards.length}</p>
             </div>
-
             <div className="w-full max-w-lg">
               <div className="w-full bg-gray-800 rounded-full h-1.5 mb-6">
                 <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${((currentIndex + 1) / currentSet.cards.length) * 100}%` }}></div>
               </div>
-
               <div className="bg-[#1a1a2e] border border-gray-700 rounded-2xl p-6 mb-4">
                 <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Question</p>
                 <p className="text-lg font-medium">{currentSet.cards[currentIndex].front}</p>
               </div>
-
               <div className="flex flex-col gap-2">
                 {qcmOptions.map((opt, i) => (
                   <button key={i} onClick={() => handleQCMAnswer(opt)}
@@ -297,12 +317,10 @@ export default function FlashcardsPage() {
                       : opt === currentSet.cards[currentIndex].back ? "border-green-500 bg-green-950 text-green-300"
                       : qcmAnswer === opt ? "border-red-500 bg-red-950 text-red-300"
                       : "border-gray-700 bg-[#1a1a2e] opacity-50"
-                    }`}>
-                    {opt}
+                    }`}>{opt}
                   </button>
                 ))}
               </div>
-
               {qcmAnswer && (
                 <div className="mt-4 flex justify-end">
                   <button onClick={nextCard} className="bg-blue-600 hover:bg-blue-500 px-5 py-2.5 rounded-xl text-sm font-medium transition-colors">
@@ -314,7 +332,6 @@ export default function FlashcardsPage() {
           </div>
         )}
 
-        {/* Création manuelle */}
         {mode === "create" && (
           <div className="flex-1 flex flex-col items-center p-8 overflow-y-auto">
             <div className="w-full max-w-lg flex flex-col gap-4">
@@ -322,24 +339,12 @@ export default function FlashcardsPage() {
                 <h2 className="text-lg font-semibold">Créer un set</h2>
                 <button onClick={() => setMode("home")} className="text-gray-500 hover:text-white text-sm">Annuler</button>
               </div>
-              <input value={manualTitle} onChange={(e) => setManualTitle(e.target.value)}
-                placeholder="Titre du set (ex: Biologie Chap.3)"
-                className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
+              <input value={manualTitle} onChange={(e) => setManualTitle(e.target.value)} placeholder="Titre du set (ex: Biologie Chap.3)" className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
               <div className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-4 flex flex-col gap-3">
                 <p className="text-sm text-gray-400">Ajouter une carte</p>
-                <input value={manualFront} onChange={(e) => setManualFront(e.target.value)}
-                  placeholder="Recto (question)"
-                  className="bg-[#0f0f1a] border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
-                <input value={manualBack} onChange={(e) => setManualBack(e.target.value)}
-                  placeholder="Verso (réponse)"
-                  className="bg-[#0f0f1a] border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
-                <button onClick={() => {
-                  if (!manualFront.trim() || !manualBack.trim()) return;
-                  setManualCards((prev) => [...prev, { front: manualFront.trim(), back: manualBack.trim() }]);
-                  setManualFront(""); setManualBack("");
-                }} className="bg-blue-600 hover:bg-blue-500 rounded-lg py-2 text-sm font-medium transition-colors">
-                  + Ajouter
-                </button>
+                <input value={manualFront} onChange={(e) => setManualFront(e.target.value)} placeholder="Recto (question)" className="bg-[#0f0f1a] border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                <input value={manualBack} onChange={(e) => setManualBack(e.target.value)} placeholder="Verso (réponse)" className="bg-[#0f0f1a] border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                <button onClick={() => { if (!manualFront.trim() || !manualBack.trim()) return; setManualCards((prev) => [...prev, { front: manualFront.trim(), back: manualBack.trim() }]); setManualFront(""); setManualBack(""); }} className="bg-blue-600 hover:bg-blue-500 rounded-lg py-2 text-sm font-medium transition-colors">+ Ajouter</button>
               </div>
               {manualCards.length > 0 && (
                 <div className="flex flex-col gap-2">
@@ -353,9 +358,7 @@ export default function FlashcardsPage() {
                       <button onClick={() => setManualCards((prev) => prev.filter((_, j) => j !== i))} className="text-gray-600 hover:text-red-400 text-xs">✕</button>
                     </div>
                   ))}
-                  <button onClick={handleSaveManual} disabled={!manualTitle.trim()} className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors mt-2">
-                    Sauvegarder le set
-                  </button>
+                  <button onClick={handleSaveManual} disabled={!manualTitle.trim()} className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors mt-2">Sauvegarder le set</button>
                 </div>
               )}
             </div>
@@ -363,7 +366,24 @@ export default function FlashcardsPage() {
         )}
       </main>
 
-      {/* Modal génération IA */}
+      {showLimitModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl text-center">
+            <div className="w-12 h-12 bg-orange-900 rounded-full flex items-center justify-center mx-auto">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Limite quotidienne atteinte</h2>
+              <p className="text-gray-400 text-sm mt-1">Tu as utilisé tes {FLASHCARD_LIMIT} générations de flashcards gratuites aujourd'hui.</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => router.push("/pricing")} className="bg-blue-600 hover:bg-blue-500 rounded-xl py-2.5 text-sm font-medium transition-colors">Passer à Pro →</button>
+              <button onClick={() => setShowLimitModal(false)} className="bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors text-gray-400">Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showGenerate && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
@@ -373,9 +393,8 @@ export default function FlashcardsPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <input value={genSubject} onChange={(e) => setGenSubject(e.target.value)}
-              placeholder="Sujet (ex: la révolution française)"
-              className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
+            {!isPro && <p className="text-gray-500 text-xs">{remaining} génération(s) restante(s) aujourd'hui</p>}
+            <input value={genSubject} onChange={(e) => setGenSubject(e.target.value)} placeholder="Sujet (ex: la révolution française)" className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
             <div className="flex flex-col gap-1.5">
               <label className="text-gray-400 text-xs font-medium">Nombre de cartes</label>
               <select value={genNum} onChange={(e) => setGenNum(e.target.value)} className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none">
@@ -387,9 +406,7 @@ export default function FlashcardsPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowGenerate(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
-              <button onClick={handleGenerate} disabled={generating} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">
-                {generating ? "Génération…" : "Générer"}
-              </button>
+              <button onClick={handleGenerate} disabled={generating} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">{generating ? "Génération…" : "Générer"}</button>
             </div>
           </div>
         </div>
