@@ -13,6 +13,7 @@ import { logOut, onAuthChange } from "../auth";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; messages: Message[] };
+type QuizQuestion = { question: string; options: string[]; correct: number };
 
 const FREE_LIMIT = 50;
 
@@ -40,6 +41,9 @@ export default function StudentPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [activeQuiz, setActiveQuiz] = useState<QuizQuestion[] | null>(null);
+  const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>([]);
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
   const quizFileRef = useRef<HTMLInputElement>(null);
@@ -101,13 +105,14 @@ export default function StudentPage() {
     setCurrentId(docRef.id);
     setMessages([]);
     setFileContent(null); setFileName(null); setImageBase64(null); setImagePreview(null);
+    setActiveQuiz(null); setQuizAnswers([]); setQuizSubmitted(false);
   };
 
   const handleDeleteConversation = async (id: string) => {
     if (!confirm("Supprimer cette conversation ?")) return;
     await deleteDoc(doc(db, "conversations", id));
     setConversations((prev) => prev.filter((c) => c.id !== id));
-    if (currentId === id) { setCurrentId(null); setMessages([]); }
+    if (currentId === id) { setCurrentId(null); setMessages([]); setActiveQuiz(null); }
   };
 
   const handleRename = async (id: string) => {
@@ -116,7 +121,6 @@ export default function StudentPage() {
     setConversations((prev) => prev.map((c) => c.id === id ? { ...c, title: editingTitle.trim() } : c));
     setEditingId(null);
   };
-
 
   const extractPdfText = async (file: File): Promise<string> => {
     const pdfjsLib = await import("pdfjs-dist");
@@ -147,13 +151,18 @@ export default function StudentPage() {
     }
   };
 
-  const handleQuizFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleQuizFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => setFileContent((ev.target?.result as string).slice(0, 8000));
-    reader.readAsText(file);
+    if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+      const text = await extractPdfText(file);
+      setFileContent(text);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => setFileContent((ev.target?.result as string).slice(0, 8000));
+      reader.readAsText(file);
+    }
   };
 
   const handleQuizImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,6 +226,7 @@ export default function StudentPage() {
     };
     const updated = [...messages, userMsg];
     setMessages(updated); setInput(""); setLoading(true);
+    setActiveQuiz(null); setQuizAnswers([]); setQuizSubmitted(false);
     const body: any = { messages: updated };
     if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; }
     if (mode === "fiche") { body.mode = "fiche"; body.subject = subject; }
@@ -225,7 +235,27 @@ export default function StudentPage() {
     if (imageBase64) { body.imageBase64 = imageBase64; setImageBase64(null); setImagePreview(null); }
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await res.json();
-    const aiMsg: Message = { role: "assistant", content: data.reply };
+    const reply = data.reply;
+
+    if (mode === "quiz") {
+      try {
+        const clean = reply.replace(/```json|```/g, "").trim();
+        const parsed: QuizQuestion[] = JSON.parse(clean);
+        setActiveQuiz(parsed);
+        setQuizAnswers(new Array(parsed.length).fill(null));
+        const aiMsg: Message = { role: "assistant", content: "__QUIZ__" };
+        const final = [...updated, aiMsg];
+        setMessages(final); setLoading(false);
+        const title = userMsg.content.slice(0, 40);
+        await updateDoc(doc(db, "conversations", currentId), { messages: final, title });
+        setConversations((prev) => prev.map((c) => c.id === currentId ? { ...c, messages: final, title } : c));
+        return;
+      } catch {
+        // fallback to text
+      }
+    }
+
+    const aiMsg: Message = { role: "assistant", content: reply };
     const final = [...updated, aiMsg];
     setMessages(final); setLoading(false);
     const title = userMsg.content.slice(0, 40);
@@ -252,8 +282,96 @@ export default function StudentPage() {
     await handleSend("resume", "resume");
   };
 
+  const handleQuizAnswer = (qIndex: number, aIndex: number) => {
+    if (quizSubmitted) return;
+    setQuizAnswers((prev) => { const n = [...prev]; n[qIndex] = aIndex; return n; });
+  };
+
+  const handleQuizSubmit = () => setQuizSubmitted(true);
+
+  const quizScore = activeQuiz ? activeQuiz.filter((q, i) => quizAnswers[i] === q.correct).length : 0;
+
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
   const remaining = FREE_LIMIT - messageCount;
+
+  const renderMessage = (m: Message, i: number) => {
+    if (m.role === "assistant" && m.content === "__QUIZ__" && activeQuiz) {
+      return (
+        <div key={i} className="flex gap-3 flex-row">
+          <div className="w-7 h-7 rounded-full bg-[#1a1a2e] border border-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+          </div>
+          <div className="flex-1 max-w-2xl bg-[#1a1a2e] border border-gray-800 rounded-2xl rounded-tl-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800 bg-blue-600/10">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Quiz généré par IA</span>
+              <span className="ml-auto text-gray-500 text-xs">{activeQuiz.length} questions</span>
+            </div>
+            <div className="p-4 flex flex-col gap-6">
+              {activeQuiz.map((q, qi) => (
+                <div key={qi} className="flex flex-col gap-3">
+                  <p className="text-sm font-medium text-gray-200">Question {qi + 1} : {q.question}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {q.options.map((opt, ai) => {
+                      const isSelected = quizAnswers[qi] === ai;
+                      const isCorrect = ai === q.correct;
+                      let cls = "text-left px-3 py-2.5 rounded-xl text-sm border transition-all ";
+                      if (!quizSubmitted) {
+                        cls += isSelected
+                          ? "border-blue-500 bg-blue-600/20 text-white"
+                          : "border-gray-700 bg-[#0f0f1a] text-gray-300 hover:border-gray-500 hover:text-white";
+                      } else {
+                        if (isCorrect) cls += "border-green-500 bg-green-900/30 text-green-300";
+                        else if (isSelected && !isCorrect) cls += "border-red-500 bg-red-900/30 text-red-300";
+                        else cls += "border-gray-700 bg-[#0f0f1a] text-gray-500 opacity-50";
+                      }
+                      return (
+                        <button key={ai} onClick={() => handleQuizAnswer(qi, ai)} className={cls}>
+                          <span className="text-xs opacity-60 mr-1.5">{["A", "B", "C", "D"][ai]})</span>{opt}
+                          {quizSubmitted && isCorrect && <span className="ml-1">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              {!quizSubmitted ? (
+                <button onClick={handleQuizSubmit}
+                  disabled={quizAnswers.some(a => a === null)}
+                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2">
+                  Soumettre mes réponses
+                </button>
+              ) : (
+                <div className="bg-[#0f0f1a] border border-gray-700 rounded-xl p-4 text-center">
+                  <p className="text-lg font-bold">{quizScore}/{activeQuiz.length}</p>
+                  <p className="text-gray-400 text-sm mt-0.5">
+                    {quizScore === activeQuiz.length ? "🎉 Parfait !" : quizScore >= activeQuiz.length / 2 ? "👍 Bon travail !" : "💪 Continue à réviser !"}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${m.role === "user" ? "bg-blue-600" : "bg-[#1a1a2e] border border-gray-700"}`}>
+          {m.role === "user" ? initials : (
+            <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+          )}
+        </div>
+        <div className={`max-w-2xl px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${m.role === "user" ? "bg-blue-600 text-white rounded-tr-sm" : "bg-[#1a1a2e] text-gray-100 rounded-tl-sm border border-gray-800"}`}>
+          {m.content}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex h-screen bg-[#0d0d14] text-white" style={{fontFamily: "system-ui, sans-serif"}}>
@@ -299,7 +417,7 @@ export default function StudentPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") handleRename(c.id); if (e.key === "Escape") setEditingId(null); }}
                   className="flex-1 bg-transparent text-sm px-3 py-2 outline-none text-white" />
               ) : (
-                <button onClick={() => { setCurrentId(c.id); setMessages(c.messages); }}
+                <button onClick={() => { setCurrentId(c.id); setMessages(c.messages); setActiveQuiz(null); setQuizAnswers([]); setQuizSubmitted(false); }}
                   onDoubleClick={() => { setEditingId(c.id); setEditingTitle(c.title); }}
                   className={`flex-1 text-left text-sm px-3 py-2 truncate flex items-center gap-2 ${currentId === c.id ? "text-white" : "text-gray-400 group-hover:text-white"}`}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 opacity-60"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -366,20 +484,7 @@ export default function StudentPage() {
               <button onClick={handleNewChat} className="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-lg text-sm font-medium transition-colors">Créer un chat</button>
             </div>
           )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${m.role === "user" ? "bg-blue-600" : "bg-[#1a1a2e] border border-gray-700"}`}>
-                {m.role === "user" ? initials : (
-                  <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                  </div>
-                )}
-              </div>
-              <div className={`max-w-2xl px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${m.role === "user" ? "bg-blue-600 text-white rounded-tr-sm" : "bg-[#1a1a2e] text-gray-100 rounded-tl-sm border border-gray-800"}`}>
-                {m.content}
-              </div>
-            </div>
-          ))}
+          {messages.map((m, i) => renderMessage(m, i))}
           {loading && (
             <div className="flex gap-3">
               <div className="w-7 h-7 rounded-full bg-[#1a1a2e] border border-gray-700 flex items-center justify-center flex-shrink-0">
@@ -469,7 +574,6 @@ export default function StudentPage() {
         </div>
       )}
 
-      {/* Modal Quiz */}
       {showQuiz && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#0f0f1a] border border-gray-700/50 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -487,10 +591,7 @@ export default function StudentPage() {
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-
             <div className="p-6 flex flex-col gap-5">
-
-              {/* Zone upload — mise en avant */}
               {!fileName && !imageBase64 ? (
                 <div className="border-2 border-dashed border-gray-700 rounded-2xl p-5 flex flex-col items-center gap-3 bg-[#1a1a2e]/40">
                   <div className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center">
@@ -498,12 +599,12 @@ export default function StudentPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-gray-300 font-medium">Uploade tes notes</p>
-                    <p className="text-gray-500 text-xs mt-0.5">Fichier texte ou photo de tes notes de cours</p>
+                    <p className="text-gray-500 text-xs mt-0.5">PDF, fichier texte ou photo de tes notes</p>
                   </div>
                   <div className="flex gap-2 w-full">
                     <button onClick={() => quizFileRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-2.5 text-xs font-medium text-gray-300 transition-colors">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                      Fichier (.txt, .md)
+                      PDF / Fichier
                     </button>
                     <button onClick={() => quizImageRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-2.5 text-xs font-medium text-gray-300 transition-colors">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -516,43 +617,28 @@ export default function StudentPage() {
                 <div className="flex items-center justify-between bg-blue-950/50 border border-blue-800/50 px-4 py-3 rounded-xl">
                   <div className="flex items-center gap-2">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span className="text-blue-300 text-xs font-medium">{fileName} — prêt pour le quiz ✓</span>
+                    <span className="text-blue-300 text-xs font-medium">{fileName} — prêt ✓</span>
                   </div>
                   <button onClick={() => { setFileContent(null); setFileName(null); setImageBase64(null); }} className="text-gray-500 hover:text-red-400 text-xs transition-colors">Retirer</button>
                 </div>
               )}
-
-              {/* Sujet optionnel */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">
-                  {fileName ? "Sujet précis (optionnel)" : "Sujet"}
-                </label>
-                <input
-                  value={quizSubject}
-                  onChange={(e) => setQuizSubject(e.target.value)}
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">{fileName ? "Sujet précis (optionnel)" : "Sujet"}</label>
+                <input value={quizSubject} onChange={(e) => setQuizSubject(e.target.value)}
                   placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la 2e guerre mondiale…"}
-                  className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white"
-                />
+                  className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
               </div>
-
-              {/* Nombre de questions */}
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Nombre de questions</label>
                 <div className="grid grid-cols-4 gap-2">
                   {["3", "5", "10", "15"].map((n) => (
                     <button key={n} onClick={() => setQuizNum(n)}
-                      className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
-                        quizNum === n
-                          ? "bg-blue-600 text-white border border-blue-500"
-                          : "bg-[#1a1a2e] text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white"
-                      }`}>
+                      className={`py-2.5 rounded-xl text-sm font-medium transition-all ${quizNum === n ? "bg-blue-600 text-white border border-blue-500" : "bg-[#1a1a2e] text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white"}`}>
                       {n}
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Boutons */}
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
                 <button onClick={handleGenerateQuiz} disabled={!currentId}

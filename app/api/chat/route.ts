@@ -17,15 +17,17 @@ export async function POST(request: Request) {
     const base = fileContent ? "le contenu des notes fourni" : subject;
     systemPrompt = `Tu es Revisio IA. Genere un quiz de ${numQuestions} questions sur : ${base}.
 
+Reponds UNIQUEMENT avec un tableau JSON valide, sans markdown, sans backticks, sans texte avant ou apres.
 Format exact :
-Question 1 : [question]
-A) [reponse]
-B) [reponse]
-C) [reponse]
-D) [reponse]
-Reponse correcte : [lettre]
-
-Genere exactement ${numQuestions} questions. Rien d'autre.`;
+[
+  {
+    "question": "Question ici ?",
+    "options": ["Reponse A", "Reponse B", "Reponse C", "Reponse D"],
+    "correct": 0
+  }
+]
+"correct" est l index (0,1,2,3) de la bonne reponse dans options.
+Genere exactement ${numQuestions} questions.`;
   }
 
   if (mode === "fiche") {
