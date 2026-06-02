@@ -117,13 +117,34 @@ export default function StudentPage() {
     setEditingId(null);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const extractPdfText = async (file: File): Promise<string> => {
+    const pdfjsLib = await import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = "";
+    const maxPages = Math.min(pdf.numPages, 10);
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map((item: any) => item.str).join(" ") + "\n";
+    }
+    return text.slice(0, 8000);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => setFileContent((ev.target?.result as string).slice(0, 8000));
-    reader.readAsText(file);
+    if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+      const text = await extractPdfText(file);
+      setFileContent(text);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => setFileContent((ev.target?.result as string).slice(0, 8000));
+      reader.readAsText(file);
+    }
   };
 
   const handleQuizFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
