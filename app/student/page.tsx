@@ -266,7 +266,8 @@ export default function StudentPage() {
   const handleGenerateQuiz = async () => {
     if (!currentId) return;
     setShowQuiz(false);
-    await handleSend("quiz", "quiz", quizSubject || "mes notes", quizNum);
+    const subject = quizSubject || (fileContent ? "le contenu du fichier fourni" : "mes notes");
+    await handleSend("quiz", "quiz", subject, quizNum);
     setQuizSubject("");
   };
 
