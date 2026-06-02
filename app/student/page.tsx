@@ -298,10 +298,10 @@ export default function StudentPage() {
   const remaining = FREE_LIMIT - messageCount;
 
   const difficultyLabels: Record<string, string> = {
-    general: "🟢 Général",
-    avance: "🟡 Avancé",
-    precis: "🟠 Précis",
-    examen: "🔴 Examen",
+    general: "Général",
+    avance: "Avancé",
+    precis: "Précis",
+    examen: "Examen",
   };
 
   const renderMessage = (m: Message, i: number) => {
@@ -642,10 +642,10 @@ export default function StudentPage() {
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Niveau de difficulté</label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: "general", label: "🟢 Général", desc: "Concepts de base" },
-                    { id: "avance", label: "🟡 Avancé", desc: "Liens entre idées" },
-                    { id: "precis", label: "🟠 Précis", desc: "Détails & chiffres" },
-                    { id: "examen", label: "🔴 Examen", desc: "Niveau exam, pièges" },
+                    { id: "general", label: "Général", desc: "Concepts de base" },
+                    { id: "avance", label: "Avancé", desc: "Liens entre idées" },
+                    { id: "precis", label: "Précis", desc: "Détails & chiffres" },
+                    { id: "examen", label: "Examen", desc: "Pièges & analyse" },
                   ].map((d) => (
                     <button key={d.id} onClick={() => setQuizDifficulty(d.id)}
                       className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${
