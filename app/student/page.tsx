@@ -14,7 +14,7 @@ import { logOut, onAuthChange } from "../auth";
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; messages: Message[] };
 
-const FREE_LIMIT = 10;
+const FREE_LIMIT = 50;
 
 export default function StudentPage() {
   const router = useRouter();
