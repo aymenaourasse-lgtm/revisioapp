@@ -42,6 +42,8 @@ export default function StudentPage() {
   const [editingTitle, setEditingTitle] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
+  const quizFileRef = useRef<HTMLInputElement>(null);
+  const quizImageRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
@@ -122,6 +124,38 @@ export default function StudentPage() {
     const reader = new FileReader();
     reader.onload = (ev) => setFileContent((ev.target?.result as string).slice(0, 8000));
     reader.readAsText(file);
+  };
+
+  const handleQuizFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => setFileContent((ev.target?.result as string).slice(0, 8000));
+    reader.readAsText(file);
+  };
+
+  const handleQuizImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = (h * MAX) / w; w = MAX; }
+        if (h > MAX) { w = (w * MAX) / h; h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        const b64 = canvas.toDataURL("image/jpeg", 0.7);
+        setImageBase64(b64);
+        setFileName(file.name);
+      };
+      img.src = ev.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -361,6 +395,8 @@ export default function StudentPage() {
               <div className="flex gap-1">
                 <input type="file" accept=".txt,.md,.csv" ref={fileRef} onChange={handleFileUpload} className="hidden" />
                 <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
+                <input type="file" accept=".txt,.md,.csv" ref={quizFileRef} onChange={handleQuizFileUpload} className="hidden" />
+                <input type="file" accept="image/*" ref={quizImageRef} onChange={handleQuizImageUpload} className="hidden" />
                 <button onClick={() => fileRef.current?.click()} className="p-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 </button>
@@ -412,11 +448,10 @@ export default function StudentPage() {
         </div>
       )}
 
-      {/* Modal Quiz — redesigné */}
+      {/* Modal Quiz */}
       {showQuiz && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#0f0f1a] border border-gray-700/50 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            {/* Header avec gradient */}
             <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/10 border-b border-gray-800 px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
@@ -433,39 +468,63 @@ export default function StudentPage() {
             </div>
 
             <div className="p-6 flex flex-col gap-5">
-              {/* Fichier détecté */}
-              {fileName && (
-                <div className="flex items-center gap-2 bg-blue-950/50 border border-blue-800/50 px-3 py-2.5 rounded-xl">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <span className="text-blue-300 text-xs">Basé sur : {fileName}</span>
+
+              {/* Zone upload — mise en avant */}
+              {!fileName && !imageBase64 ? (
+                <div className="border-2 border-dashed border-gray-700 rounded-2xl p-5 flex flex-col items-center gap-3 bg-[#1a1a2e]/40">
+                  <div className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-300 font-medium">Uploade tes notes</p>
+                    <p className="text-gray-500 text-xs mt-0.5">Fichier texte ou photo de tes notes de cours</p>
+                  </div>
+                  <div className="flex gap-2 w-full">
+                    <button onClick={() => quizFileRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-2.5 text-xs font-medium text-gray-300 transition-colors">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      Fichier (.txt, .md)
+                    </button>
+                    <button onClick={() => quizImageRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl py-2.5 text-xs font-medium text-gray-300 transition-colors">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      Photo de notes
+                    </button>
+                  </div>
+                  <p className="text-gray-600 text-xs">ou entre un sujet manuellement ci-dessous</p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-blue-950/50 border border-blue-800/50 px-4 py-3 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span className="text-blue-300 text-xs font-medium">{fileName} — prêt pour le quiz ✓</span>
+                  </div>
+                  <button onClick={() => { setFileContent(null); setFileName(null); setImageBase64(null); }} className="text-gray-500 hover:text-red-400 text-xs transition-colors">Retirer</button>
                 </div>
               )}
 
-              {/* Sujet */}
+              {/* Sujet optionnel */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Sujet</label>
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">
+                  {fileName ? "Sujet précis (optionnel)" : "Sujet"}
+                </label>
                 <input
                   value={quizSubject}
                   onChange={(e) => setQuizSubject(e.target.value)}
-                  placeholder={fileName ? "Sujet précis (optionnel)" : "Ex: la photosynthèse, la 2e guerre mondiale…"}
+                  placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la 2e guerre mondiale…"}
                   className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white"
                 />
               </div>
 
-              {/* Nombre de questions en boutons */}
+              {/* Nombre de questions */}
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Nombre de questions</label>
                 <div className="grid grid-cols-4 gap-2">
                   {["3", "5", "10", "15"].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setQuizNum(n)}
+                    <button key={n} onClick={() => setQuizNum(n)}
                       className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
                         quizNum === n
                           ? "bg-blue-600 text-white border border-blue-500"
                           : "bg-[#1a1a2e] text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white"
-                      }`}
-                    >
+                      }`}>
                       {n}
                     </button>
                   ))}
@@ -474,14 +533,9 @@ export default function StudentPage() {
 
               {/* Boutons */}
               <div className="flex gap-3 pt-1">
-                <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">
-                  Annuler
-                </button>
-                <button
-                  onClick={handleGenerateQuiz}
-                  disabled={!currentId}
-                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-                >
+                <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
+                <button onClick={handleGenerateQuiz} disabled={!currentId}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   Générer
                 </button>
