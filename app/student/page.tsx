@@ -59,6 +59,15 @@ export default function StudentPage() {
   const [quizDifficulty, setQuizDifficulty] = useState("general");
   const [quizType, setQuizType] = useState("qcm");
   const [ficheSubject, setFicheSubject] = useState("");
+  const [ficheMode, setFicheMode] = useState<"ia" | "manuel">("ia");
+  const [ficheManuelle, setFicheManuelle] = useState({
+    titre: "",
+    definition: "",
+    points_cles: [{ titre: "", contenu: "" }],
+    a_retenir: "",
+    mots_cles: "",
+    questions_revision: [{ question: "", reponse: "" }],
+  });
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -387,6 +396,28 @@ export default function StudentPage() {
     await handleSend("resume", "resume");
   };
 
+  const handleSaveFicheManuelle = async () => {
+    if (!currentId || !ficheManuelle.titre.trim()) return;
+    const fiche: FicheData = {
+      titre: ficheManuelle.titre.toUpperCase(),
+      sujet: ficheManuelle.titre,
+      definition: ficheManuelle.definition,
+      points_cles: ficheManuelle.points_cles.filter(p => p.titre.trim()),
+      a_retenir: ficheManuelle.a_retenir,
+      mots_cles: ficheManuelle.mots_cles.split(",").map(m => m.trim()).filter(Boolean),
+      questions_revision: ficheManuelle.questions_revision.filter(q => q.question.trim()),
+    };
+    const userMsg: Message = { role: "user", content: `Fiche manuelle : ${fiche.titre}` };
+    const aiMsg: Message = { role: "assistant", content: "__FICHE__" + JSON.stringify(fiche) };
+    const final = [...messages, userMsg, aiMsg];
+    setMessages(final);
+    const title = `Fiche : ${fiche.titre}`.slice(0, 40);
+    await updateDoc(doc(db, "conversations", currentId), { messages: final, title });
+    setConversations(prev => prev.map(c => c.id === currentId ? { ...c, messages: final, title } : c));
+    setFicheManuelle({ titre: "", definition: "", points_cles: [{ titre: "", contenu: "" }], a_retenir: "", mots_cles: "", questions_revision: [{ question: "", reponse: "" }] });
+    setShowFiche(false);
+  };
+
   const handleQuizAnswer = (qIndex: number, aIndex: number) => {
     if (quizSubmitted) return;
     setQuizAnswers((prev) => { const n = [...prev]; n[qIndex] = aIndex; return n; });
@@ -403,7 +434,6 @@ export default function StudentPage() {
   const qcmCount = activeQuiz ? activeQuiz.filter(q => q.type === "qcm").length : 0;
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
   const remaining = FREE_LIMIT - messageCount;
-
   const difficultyLabels: Record<string, string> = { general: "Général", avance: "Avancé", precis: "Précis", examen: "Examen" };
   const getNoteColor = (note: number) => note >= 80 ? "text-green-400" : note >= 60 ? "text-yellow-400" : "text-red-400";
 
@@ -415,7 +445,6 @@ export default function StudentPage() {
         </div>
       </div>
       <div className="flex-1 max-w-2xl bg-[#1a1a2e] border border-gray-800 rounded-2xl rounded-tl-sm overflow-hidden">
-        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600/30 to-blue-800/20 px-5 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2 mb-1">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -423,9 +452,7 @@ export default function StudentPage() {
           </div>
           <h2 className="text-white font-bold text-lg">{fiche.titre}</h2>
         </div>
-
         <div className="p-5 flex flex-col gap-5">
-          {/* Définition */}
           <div className="bg-blue-900/15 border border-blue-800/40 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center flex-shrink-0">
@@ -436,7 +463,6 @@ export default function StudentPage() {
             <p className="text-gray-200 text-sm leading-relaxed">{fiche.definition}</p>
           </div>
 
-          {/* Points clés */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-5 h-5 bg-green-600 rounded-md flex items-center justify-center flex-shrink-0">
@@ -455,7 +481,6 @@ export default function StudentPage() {
             ))}
           </div>
 
-          {/* À retenir */}
           <div className="bg-yellow-900/15 border border-yellow-700/40 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-5 h-5 bg-yellow-600 rounded-md flex items-center justify-center flex-shrink-0">
@@ -466,7 +491,6 @@ export default function StudentPage() {
             <p className="text-gray-200 text-sm leading-relaxed">{fiche.a_retenir}</p>
           </div>
 
-          {/* Mots clés */}
           <div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center flex-shrink-0">
@@ -481,37 +505,32 @@ export default function StudentPage() {
             </div>
           </div>
 
-          {/* Questions de révision */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-5 h-5 bg-orange-600 rounded-md flex items-center justify-center flex-shrink-0">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </div>
-              <p className="text-orange-300 text-xs font-semibold uppercase tracking-wider">Questions de révision rapide</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              {fiche.questions_revision.map((qr, qi) => (
-                <div key={qi} className="bg-[#0f0f1a] border border-gray-700 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => {
-                      const n = [...revealedAnswers];
-                      n[qi] = !n[qi];
-                      setRevealedAnswers(n);
-                    }}
-                    className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-800/50 transition-colors"
-                  >
-                    <p className="text-sm text-gray-200">{qr.question}</p>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`flex-shrink-0 transition-transform ${revealedAnswers[qi] ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
-                  </button>
-                  {revealedAnswers[qi] && (
-                    <div className="px-4 pb-3 border-t border-gray-800">
-                      <p className="text-xs text-green-300 mt-2">{qr.reponse}</p>
-                    </div>
-                  )}
+          {fiche.questions_revision?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-5 h-5 bg-orange-600 rounded-md flex items-center justify-center flex-shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 </div>
-              ))}
+                <p className="text-orange-300 text-xs font-semibold uppercase tracking-wider">Questions de révision rapide</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {fiche.questions_revision.map((qr, qi) => (
+                  <div key={qi} className="bg-[#0f0f1a] border border-gray-700 rounded-xl overflow-hidden">
+                    <button onClick={() => { const n = [...revealedAnswers]; n[qi] = !n[qi]; setRevealedAnswers(n); }}
+                      className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-800/50 transition-colors">
+                      <p className="text-sm text-gray-200">{qr.question}</p>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`flex-shrink-0 transition-transform ${revealedAnswers[qi] ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    {revealedAnswers[qi] && (
+                      <div className="px-4 pb-3 border-t border-gray-800">
+                        <p className="text-xs text-green-300 mt-2">{qr.reponse}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -522,9 +541,7 @@ export default function StudentPage() {
       try {
         const fiche: FicheData = JSON.parse(m.content.replace("__FICHE__", ""));
         return renderFiche(fiche, i);
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     }
 
     if (m.role === "assistant" && m.content === "__QUIZ__" && activeQuiz) {
@@ -958,57 +975,158 @@ export default function StudentPage() {
 
       {showFiche && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#0f0f1a] border border-gray-700/50 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/10 border-b border-gray-800 px-6 py-5 flex items-center justify-between">
+          <div className="bg-[#0f0f1a] border border-gray-700/50 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/10 border-b border-gray-800 px-6 py-5 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-white">Créer une fiche de révision</h2>
-                  <p className="text-gray-500 text-xs">Fiche structurée avec points clés et questions</p>
+                  <h2 className="text-base font-semibold text-white">Fiche de révision</h2>
+                  <p className="text-gray-500 text-xs">Générée par IA ou créée manuellement</p>
                 </div>
               </div>
               <button onClick={() => setShowFiche(false)} className="text-gray-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-800 transition-colors">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <div className="p-6 flex flex-col gap-4">
-              {!fileName ? (
-                <div className="border-2 border-dashed border-gray-700 rounded-2xl p-4 flex flex-col items-center gap-3 bg-[#1a1a2e]/40">
-                  <div className="text-center">
-                    <p className="text-sm text-gray-300 font-medium">Uploade tes notes (optionnel)</p>
-                    <p className="text-gray-500 text-xs mt-0.5">PDF ou fichier texte</p>
-                  </div>
-                  <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl px-4 py-2 text-xs font-medium text-gray-300 transition-colors">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    PDF / Fichier
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between bg-blue-950/50 border border-blue-800/50 px-4 py-3 rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    <span className="text-blue-300 text-xs font-medium">{fileName} ✓</span>
-                  </div>
-                  <button onClick={() => { setFileContent(null); setFileName(null); }} className="text-gray-500 hover:text-red-400 text-xs">Retirer</button>
-                </div>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">{fileName ? "Sujet précis (optionnel)" : "Sujet"}</label>
-                <input value={ficheSubject} onChange={(e) => setFicheSubject(e.target.value)}
-                  placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la Révolution française…"}
-                  className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
-              </div>
-              <div className="flex gap-3 pt-1">
-                <button onClick={() => setShowFiche(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
-                <button onClick={handleGenerateFiche} disabled={!currentId}
-                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  Créer la fiche
+
+            <div className="px-6 pt-5 flex-shrink-0">
+              <div className="flex gap-2 bg-[#1a1a2e] border border-gray-700 rounded-xl p-1">
+                <button onClick={() => setFicheMode("ia")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${ficheMode === "ia" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  Générer avec l'IA
+                </button>
+                <button onClick={() => setFicheMode("manuel")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${ficheMode === "manuel" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Créer manuellement
                 </button>
               </div>
-              {!currentId && <p className="text-red-400 text-xs text-center -mt-2">Crée un nouveau chat d'abord</p>}
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-6">
+              {ficheMode === "ia" ? (
+                <div className="flex flex-col gap-4">
+                  {!fileName ? (
+                    <div className="border-2 border-dashed border-gray-700 rounded-2xl p-4 flex flex-col items-center gap-3 bg-[#1a1a2e]/40">
+                      <div className="text-center">
+                        <p className="text-sm text-gray-300 font-medium">Uploade tes notes (optionnel)</p>
+                        <p className="text-gray-500 text-xs mt-0.5">PDF ou fichier texte</p>
+                      </div>
+                      <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl px-4 py-2 text-xs font-medium text-gray-300 transition-colors">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        PDF / Fichier
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between bg-blue-950/50 border border-blue-800/50 px-4 py-3 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span className="text-blue-300 text-xs font-medium">{fileName} ✓</span>
+                      </div>
+                      <button onClick={() => { setFileContent(null); setFileName(null); }} className="text-gray-500 hover:text-red-400 text-xs">Retirer</button>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">{fileName ? "Sujet précis (optionnel)" : "Sujet"}</label>
+                    <input value={ficheSubject} onChange={(e) => setFicheSubject(e.target.value)}
+                      placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la Révolution française…"}
+                      className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <button onClick={() => setShowFiche(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
+                    <button onClick={handleGenerateFiche} disabled={!currentId}
+                      className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                      Créer la fiche
+                    </button>
+                  </div>
+                  {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Titre de la fiche</label>
+                    <input value={ficheManuelle.titre} onChange={(e) => setFicheManuelle(prev => ({ ...prev, titre: e.target.value }))}
+                      placeholder="Ex: Chorée de Huntington"
+                      className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Définition</label>
+                    <textarea value={ficheManuelle.definition} onChange={(e) => setFicheManuelle(prev => ({ ...prev, definition: e.target.value }))}
+                      placeholder="Définition claire du sujet…" rows={3}
+                      className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white resize-none" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Points clés</label>
+                      <button onClick={() => setFicheManuelle(prev => ({ ...prev, points_cles: [...prev.points_cles, { titre: "", contenu: "" }] }))}
+                        className="text-blue-400 text-xs hover:underline">+ Ajouter</button>
+                    </div>
+                    {ficheManuelle.points_cles.map((p, i) => (
+                      <div key={i} className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 bg-green-900/50 border border-green-700/50 rounded-full flex items-center justify-center text-green-300 text-xs font-bold flex-shrink-0">{i + 1}</span>
+                          <input value={p.titre} onChange={(e) => { const n = [...ficheManuelle.points_cles]; n[i].titre = e.target.value; setFicheManuelle(prev => ({ ...prev, points_cles: n })); }}
+                            placeholder="Titre du point"
+                            className="flex-1 bg-transparent text-sm outline-none text-white placeholder-gray-600" />
+                          {ficheManuelle.points_cles.length > 1 && (
+                            <button onClick={() => setFicheManuelle(prev => ({ ...prev, points_cles: prev.points_cles.filter((_, j) => j !== i) }))} className="text-gray-600 hover:text-red-400 text-xs">✕</button>
+                          )}
+                        </div>
+                        <textarea value={p.contenu} onChange={(e) => { const n = [...ficheManuelle.points_cles]; n[i].contenu = e.target.value; setFicheManuelle(prev => ({ ...prev, points_cles: n })); }}
+                          placeholder="Explication détaillée…" rows={2}
+                          className="bg-[#0f0f1a] border border-gray-700 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 text-white placeholder-gray-600 resize-none" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">À retenir</label>
+                    <textarea value={ficheManuelle.a_retenir} onChange={(e) => setFicheManuelle(prev => ({ ...prev, a_retenir: e.target.value }))}
+                      placeholder="Les points essentiels à mémoriser…" rows={2}
+                      className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white resize-none" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Mots clés (séparés par des virgules)</label>
+                    <input value={ficheManuelle.mots_cles} onChange={(e) => setFicheManuelle(prev => ({ ...prev, mots_cles: e.target.value }))}
+                      placeholder="Ex: génétique, ADN, mutation, chromosome…"
+                      className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Questions de révision</label>
+                      <button onClick={() => setFicheManuelle(prev => ({ ...prev, questions_revision: [...prev.questions_revision, { question: "", reponse: "" }] }))}
+                        className="text-blue-400 text-xs hover:underline">+ Ajouter</button>
+                    </div>
+                    {ficheManuelle.questions_revision.map((q, i) => (
+                      <div key={i} className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <input value={q.question} onChange={(e) => { const n = [...ficheManuelle.questions_revision]; n[i].question = e.target.value; setFicheManuelle(prev => ({ ...prev, questions_revision: n })); }}
+                            placeholder="Question ?"
+                            className="flex-1 bg-transparent text-sm outline-none text-white placeholder-gray-600" />
+                          {ficheManuelle.questions_revision.length > 1 && (
+                            <button onClick={() => setFicheManuelle(prev => ({ ...prev, questions_revision: prev.questions_revision.filter((_, j) => j !== i) }))} className="text-gray-600 hover:text-red-400 text-xs">✕</button>
+                          )}
+                        </div>
+                        <input value={q.reponse} onChange={(e) => { const n = [...ficheManuelle.questions_revision]; n[i].reponse = e.target.value; setFicheManuelle(prev => ({ ...prev, questions_revision: n })); }}
+                          placeholder="Réponse courte…"
+                          className="bg-[#0f0f1a] border border-gray-700 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 text-white placeholder-gray-600" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <button onClick={() => setShowFiche(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
+                    <button onClick={handleSaveFicheManuelle} disabled={!currentId || !ficheManuelle.titre.trim()}
+                      className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      Sauvegarder la fiche
+                    </button>
+                  </div>
+                  {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
+                </div>
+              )}
             </div>
           </div>
         </div>
