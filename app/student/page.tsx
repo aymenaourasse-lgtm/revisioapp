@@ -13,7 +13,20 @@ import { logOut, onAuthChange } from "../auth";
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; messages: Message[] };
-type QuizQuestion = { question: string; options: string[]; correct: number; explanation?: string };
+type QuizQuestion = {
+  type: "qcm" | "dev";
+  question: string;
+  options?: string[];
+  correct?: number;
+  explanation?: string;
+  reponse_ideale?: string;
+};
+type QuizCorrection = {
+  note: number;
+  appreciation: string;
+  commentaire: string;
+  correction: string;
+};
 
 const FREE_LIMIT = 50;
 
@@ -35,6 +48,7 @@ export default function StudentPage() {
   const [quizSubject, setQuizSubject] = useState("");
   const [quizNum, setQuizNum] = useState("5");
   const [quizDifficulty, setQuizDifficulty] = useState("general");
+  const [quizType, setQuizType] = useState("qcm");
   const [ficheSubject, setFicheSubject] = useState("");
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -43,7 +57,11 @@ export default function StudentPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [activeQuiz, setActiveQuiz] = useState<QuizQuestion[] | null>(null);
+  const [activeQuizDifficulty, setActiveQuizDifficulty] = useState("general");
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>([]);
+  const [devAnswers, setDevAnswers] = useState<string[]>([]);
+  const [devCorrections, setDevCorrections] = useState<(QuizCorrection | null)[]>([]);
+  const [devCorrecting, setDevCorrecting] = useState<boolean[]>([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -107,7 +125,7 @@ export default function StudentPage() {
     setCurrentId(docRef.id);
     setMessages([]);
     setFileContent(null); setFileName(null); setImageBase64(null); setImagePreview(null);
-    setActiveQuiz(null); setQuizAnswers([]); setQuizSubmitted(false);
+    setActiveQuiz(null); setQuizAnswers([]); setDevAnswers([]); setDevCorrections([]); setDevCorrecting([]); setQuizSubmitted(false);
   };
 
   const handleDeleteConversation = async (id: string) => {
@@ -215,7 +233,43 @@ export default function StudentPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string, difficulty?: string) => {
+  const handleCorrectDevAnswer = async (qi: number) => {
+    if (!activeQuiz) return;
+    const q = activeQuiz[qi];
+    const answer = devAnswers[qi];
+    if (!answer?.trim()) return;
+    const newCorrecting = [...devCorrecting];
+    newCorrecting[qi] = true;
+    setDevCorrecting(newCorrecting);
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [], mode: "quiz_correction", question: q.question, studentAnswer: answer }),
+    });
+    const data = await res.json();
+    try {
+      const clean = data.reply.replace(/```json|```/g, "").trim();
+      const correction: QuizCorrection = JSON.parse(clean);
+      const newCorrections = [...devCorrections];
+      newCorrections[qi] = correction;
+      setDevCorrections(newCorrections);
+      if (currentId && activeQuiz) {
+        await updateDoc(doc(db, "conversations", currentId), {
+          quizData: activeQuiz,
+          quizAnswers: quizAnswers,
+          devAnswers: devAnswers,
+          devCorrections: newCorrections,
+          quizSubmitted,
+          quizDifficulty: activeQuizDifficulty,
+        });
+      }
+    } catch {}
+    const newCorrecting2 = [...devCorrecting];
+    newCorrecting2[qi] = false;
+    setDevCorrecting(newCorrecting2);
+  };
+
+  const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string, difficulty?: string, questionType?: string) => {
     const text = overrideInput ?? input;
     if ((!text.trim() && !imageBase64 && mode !== "resume") || !currentId) return;
     const canSend = await checkAndIncrementCount();
@@ -230,9 +284,9 @@ export default function StudentPage() {
     };
     const updated = [...messages, userMsg];
     setMessages(updated); setInput(""); setLoading(true);
-    setActiveQuiz(null); setQuizAnswers([]); setQuizSubmitted(false);
+    setActiveQuiz(null); setQuizAnswers([]); setDevAnswers([]); setDevCorrections([]); setDevCorrecting([]); setQuizSubmitted(false);
     const body: any = { messages: updated };
-    if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; body.difficulty = difficulty; }
+    if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; body.difficulty = difficulty; body.questionType = questionType; }
     if (mode === "fiche") { body.mode = "fiche"; body.subject = subject; }
     if (mode === "resume") { body.mode = "resume"; }
     if (fileContent) body.fileContent = fileContent;
@@ -246,17 +300,28 @@ export default function StudentPage() {
         const clean = reply.replace(/```json|```/g, "").trim();
         const parsed: QuizQuestion[] = JSON.parse(clean);
         setActiveQuiz(parsed);
+        setActiveQuizDifficulty(difficulty ?? "general");
         setQuizAnswers(new Array(parsed.length).fill(null));
+        setDevAnswers(new Array(parsed.length).fill(""));
+        setDevCorrections(new Array(parsed.length).fill(null));
+        setDevCorrecting(new Array(parsed.length).fill(false));
         const aiMsg: Message = { role: "assistant", content: "__QUIZ__" };
         const final = [...updated, aiMsg];
         setMessages(final); setLoading(false);
         const title = userMsg.content.slice(0, 40);
-        await updateDoc(doc(db, "conversations", currentId), { messages: final, title });
+        await updateDoc(doc(db, "conversations", currentId), {
+          messages: final,
+          title,
+          quizData: parsed,
+          quizAnswers: new Array(parsed.length).fill(null),
+          devAnswers: new Array(parsed.length).fill(""),
+          devCorrections: new Array(parsed.length).fill(null),
+          quizSubmitted: false,
+          quizDifficulty: difficulty ?? "general",
+        });
         setConversations((prev) => prev.map((c) => c.id === currentId ? { ...c, messages: final, title } : c));
         return;
-      } catch {
-        // fallback to text
-      }
+      } catch {}
     }
 
     const aiMsg: Message = { role: "assistant", content: reply };
@@ -267,11 +332,30 @@ export default function StudentPage() {
     setConversations((prev) => prev.map((c) => c.id === currentId ? { ...c, messages: final, title } : c));
   };
 
+  const loadConversation = async (c: Conversation) => {
+    setCurrentId(c.id);
+    setMessages(c.messages);
+    setActiveQuiz(null); setQuizAnswers([]); setDevAnswers([]); setDevCorrections([]); setDevCorrecting([]); setQuizSubmitted(false);
+    const snap = await getDoc(doc(db, "conversations", c.id));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.quizData) {
+        setActiveQuiz(data.quizData);
+        setActiveQuizDifficulty(data.quizDifficulty ?? "general");
+        setQuizAnswers(data.quizAnswers ?? new Array(data.quizData.length).fill(null));
+        setDevAnswers(data.devAnswers ?? new Array(data.quizData.length).fill(""));
+        setDevCorrections(data.devCorrections ?? new Array(data.quizData.length).fill(null));
+        setDevCorrecting(new Array(data.quizData.length).fill(false));
+        setQuizSubmitted(data.quizSubmitted ?? false);
+      }
+    }
+  };
+
   const handleGenerateQuiz = async () => {
     if (!currentId) return;
     setShowQuiz(false);
     const subject = quizSubject || (fileContent ? "le contenu du fichier fourni" : "mes notes");
-    await handleSend("quiz", "quiz", subject, quizNum, quizDifficulty);
+    await handleSend("quiz", "quiz", subject, quizNum, quizDifficulty, quizType);
     setQuizSubject("");
   };
 
@@ -292,8 +376,19 @@ export default function StudentPage() {
     setQuizAnswers((prev) => { const n = [...prev]; n[qIndex] = aIndex; return n; });
   };
 
-  const handleQuizSubmit = () => setQuizSubmitted(true);
-  const quizScore = activeQuiz ? activeQuiz.filter((q, i) => quizAnswers[i] === q.correct).length : 0;
+  const handleQuizSubmit = async () => {
+    setQuizSubmitted(true);
+    if (currentId && activeQuiz) {
+      await updateDoc(doc(db, "conversations", currentId), {
+        quizAnswers,
+        devAnswers,
+        quizSubmitted: true,
+      });
+    }
+  };
+
+  const quizScore = activeQuiz ? activeQuiz.filter((q, i) => q.type === "qcm" && quizAnswers[i] === q.correct).length : 0;
+  const qcmCount = activeQuiz ? activeQuiz.filter(q => q.type === "qcm").length : 0;
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
   const remaining = FREE_LIMIT - messageCount;
 
@@ -302,6 +397,12 @@ export default function StudentPage() {
     avance: "Avancé",
     precis: "Précis",
     examen: "Examen",
+  };
+
+  const getNoteColor = (note: number) => {
+    if (note >= 80) return "text-green-400";
+    if (note >= 60) return "text-yellow-400";
+    return "text-red-400";
   };
 
   const renderMessage = (m: Message, i: number) => {
@@ -317,56 +418,109 @@ export default function StudentPage() {
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800 bg-blue-600/10">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Quiz généré par IA</span>
-              <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">{difficultyLabels[quizDifficulty]}</span>
+              <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">{difficultyLabels[activeQuizDifficulty]}</span>
               <span className="ml-auto text-gray-500 text-xs">{activeQuiz.length} questions</span>
             </div>
             <div className="p-4 flex flex-col gap-6">
               {activeQuiz.map((q, qi) => (
                 <div key={qi} className="flex flex-col gap-3">
-                  <p className="text-sm font-medium text-gray-200">Question {qi + 1} : {q.question}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {q.options.map((opt, ai) => {
-                      const isSelected = quizAnswers[qi] === ai;
-                      const isCorrect = ai === q.correct;
-                      let cls = "text-left px-3 py-2.5 rounded-xl text-sm border transition-all ";
-                      if (!quizSubmitted) {
-                        cls += isSelected ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#0f0f1a] text-gray-300 hover:border-gray-500 hover:text-white";
-                      } else {
-                        if (isCorrect) cls += "border-green-500 bg-green-900/30 text-green-300";
-                        else if (isSelected && !isCorrect) cls += "border-red-500 bg-red-900/30 text-red-300";
-                        else cls += "border-gray-700 bg-[#0f0f1a] text-gray-500 opacity-50";
-                      }
-                      return (
-                        <button key={ai} onClick={() => handleQuizAnswer(qi, ai)} className={cls}>
-                          <span className="text-xs opacity-60 mr-1.5">{["A", "B", "C", "D"][ai]})</span>{opt}
-                          {quizSubmitted && isCorrect && <span className="ml-1">✓</span>}
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-start gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${q.type === "qcm" ? "bg-blue-900/50 text-blue-300" : "bg-purple-900/50 text-purple-300"}`}>
+                      {q.type === "qcm" ? "QCM" : "Développement"}
+                    </span>
+                    <p className="text-sm font-medium text-gray-200">Question {qi + 1} : {q.question}</p>
                   </div>
-                  {/* Explication après soumission */}
-                  {quizSubmitted && q.explanation && (
-                    <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs border ${
-                      quizAnswers[qi] === q.correct
-                        ? "bg-green-900/20 border-green-800/50 text-green-300"
-                        : "bg-orange-900/20 border-orange-800/50 text-orange-300"
-                    }`}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      <span>{q.explanation}</span>
+
+                  {q.type === "qcm" && q.options && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {q.options.map((opt, ai) => {
+                          const isSelected = quizAnswers[qi] === ai;
+                          const isCorrect = ai === q.correct;
+                          let cls = "text-left px-3 py-2.5 rounded-xl text-sm border transition-all ";
+                          if (!quizSubmitted) {
+                            cls += isSelected ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#0f0f1a] text-gray-300 hover:border-gray-500 hover:text-white";
+                          } else {
+                            if (isCorrect) cls += "border-green-500 bg-green-900/30 text-green-300";
+                            else if (isSelected && !isCorrect) cls += "border-red-500 bg-red-900/30 text-red-300";
+                            else cls += "border-gray-700 bg-[#0f0f1a] text-gray-500 opacity-50";
+                          }
+                          return (
+                            <button key={ai} onClick={() => handleQuizAnswer(qi, ai)} className={cls}>
+                              <span className="text-xs opacity-60 mr-1.5">{["A", "B", "C", "D"][ai]})</span>{opt}
+                              {quizSubmitted && isCorrect && <span className="ml-1">✓</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {quizSubmitted && q.explanation && (
+                        <div className={`flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs border ${quizAnswers[qi] === q.correct ? "bg-green-900/20 border-green-800/50 text-green-300" : "bg-orange-900/20 border-orange-800/50 text-orange-300"}`}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                          <span>{q.explanation}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {q.type === "dev" && (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        value={devAnswers[qi] ?? ""}
+                        onChange={(e) => {
+                          const n = [...devAnswers]; n[qi] = e.target.value; setDevAnswers(n);
+                        }}
+                        disabled={!!devCorrections[qi]}
+                        placeholder="Écris ta réponse ici…"
+                        rows={4}
+                        className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors text-white placeholder-gray-600 resize-none disabled:opacity-60"
+                      />
+                      {!devCorrections[qi] && (
+                        <button
+                          onClick={() => handleCorrectDevAnswer(qi)}
+                          disabled={!devAnswers[qi]?.trim() || devCorrecting[qi]}
+                          className="self-end bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2"
+                        >
+                          {devCorrecting[qi] ? (
+                            <><div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>Correction en cours…</>
+                          ) : "Corriger ma réponse →"}
+                        </button>
+                      )}
+                      {devCorrections[qi] && (
+                        <div className="bg-[#0f0f1a] border border-gray-700 rounded-xl p-4 flex flex-col gap-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Correction IA</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-lg font-bold ${getNoteColor(devCorrections[qi]!.note)}`}>{devCorrections[qi]!.note}/100</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${getNoteColor(devCorrections[qi]!.note)} bg-gray-800`}>{devCorrections[qi]!.appreciation}</span>
+                            </div>
+                          </div>
+                          <div className="bg-blue-900/20 border border-blue-800/40 rounded-lg px-3 py-2">
+                            <p className="text-xs text-blue-300 font-medium mb-1">Commentaire</p>
+                            <p className="text-xs text-gray-300">{devCorrections[qi]!.commentaire}</p>
+                          </div>
+                          <div className="bg-green-900/20 border border-green-800/40 rounded-lg px-3 py-2">
+                            <p className="text-xs text-green-300 font-medium mb-1">Réponse idéale</p>
+                            <p className="text-xs text-gray-300">{devCorrections[qi]!.correction}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               ))}
-              {!quizSubmitted ? (
-                <button onClick={handleQuizSubmit} disabled={quizAnswers.some(a => a === null)}
+
+              {!quizSubmitted && qcmCount > 0 && (
+                <button onClick={handleQuizSubmit} disabled={activeQuiz.filter(q => q.type === "qcm").some((_, i) => quizAnswers[activeQuiz.indexOf(activeQuiz.filter(q => q.type === "qcm")[i])] === null)}
                   className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2">
-                  Soumettre mes réponses
+                  Soumettre les QCM
                 </button>
-              ) : (
+              )}
+
+              {quizSubmitted && qcmCount > 0 && (
                 <div className="bg-[#0f0f1a] border border-gray-700 rounded-xl p-4 text-center">
-                  <p className="text-lg font-bold">{quizScore}/{activeQuiz.length}</p>
+                  <p className="text-lg font-bold">{quizScore}/{qcmCount} QCM</p>
                   <p className="text-gray-400 text-sm mt-0.5">
-                    {quizScore === activeQuiz.length ? "🎉 Parfait !" : quizScore >= activeQuiz.length / 2 ? "👍 Bon travail !" : "💪 Continue à réviser !"}
+                    {quizScore === qcmCount ? "Parfait !" : quizScore >= qcmCount / 2 ? "Bon travail !" : "Continue à réviser !"}
                   </p>
                 </div>
               )}
@@ -436,7 +590,7 @@ export default function StudentPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") handleRename(c.id); if (e.key === "Escape") setEditingId(null); }}
                   className="flex-1 bg-transparent text-sm px-3 py-2 outline-none text-white" />
               ) : (
-                <button onClick={() => { setCurrentId(c.id); setMessages(c.messages); setActiveQuiz(null); setQuizAnswers([]); setQuizSubmitted(false); }}
+                <button onClick={() => loadConversation(c)}
                   onDoubleClick={() => { setEditingId(c.id); setEditingTitle(c.title); }}
                   className={`flex-1 text-left text-sm px-3 py-2 truncate flex items-center gap-2 ${currentId === c.id ? "text-white" : "text-gray-400 group-hover:text-white"}`}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 opacity-60"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -647,6 +801,25 @@ export default function StudentPage() {
                 <input value={quizSubject} onChange={(e) => setQuizSubject(e.target.value)}
                   placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la 2e guerre mondiale…"}
                   className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Type de questions</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "qcm", label: "QCM", desc: "Choix multiples" },
+                    { id: "developpement", label: "Développement", desc: "Réponse longue" },
+                    { id: "mix", label: "Mix", desc: "Les deux" },
+                  ].map((t) => (
+                    <button key={t.id} onClick={() => setQuizType(t.id)}
+                      className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${
+                        quizType === t.id ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"
+                      }`}>
+                      <span className="font-medium text-xs">{t.label}</span>
+                      <span className="text-xs opacity-60 mt-0.5">{t.desc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">
