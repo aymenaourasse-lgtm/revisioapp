@@ -55,6 +55,7 @@ export default function StudentPage() {
   const [showFiche, setShowFiche] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [resumeSubject, setResumeSubject] = useState("");
+  const [resumeMode, setResumeMode] = useState<"general" | "precis">("general");
   const [quizSubject, setQuizSubject] = useState("");
   const [quizNum, setQuizNum] = useState("5");
   const [quizDifficulty, setQuizDifficulty] = useState("general");
@@ -284,7 +285,7 @@ export default function StudentPage() {
     setDevCorrecting(newCorrecting2);
   };
 
-  const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string, difficulty?: string, questionType?: string) => {
+  const handleSend = async (overrideInput?: string, mode?: string, subject?: string, numQuestions?: string, difficulty?: string, questionType?: string, resumeModeParam?: string) => {
     const text = overrideInput ?? input;
     if ((!text.trim() && !imageBase64 && mode !== "resume") || !currentId) return;
     const canSend = await checkAndIncrementCount();
@@ -293,7 +294,7 @@ export default function StudentPage() {
       role: "user",
       content: mode === "quiz" ? `Quiz sur : ${subject ?? "mes notes"} (${numQuestions} questions)`
         : mode === "fiche" ? `Fiche de révision : ${subject ?? "mes notes"}`
-        : mode === "resume" ? `Résumé${subject ? ` — ${subject}` : ""} : ${fileName ?? "mes notes"}`
+        : mode === "resume" ? `Résumé ${resumeModeParam === "precis" ? "précis" : "général"}${subject ? ` — ${subject}` : ""} : ${fileName ?? "mes notes"}`
         : imageBase64 && !text.trim() ? "Image envoyée — analyse cette image"
         : text,
     };
@@ -303,7 +304,7 @@ export default function StudentPage() {
     const body: any = { messages: updated };
     if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; body.difficulty = difficulty; body.questionType = questionType; }
     if (mode === "fiche") { body.mode = "fiche"; body.subject = subject; }
-    if (mode === "resume") { body.mode = "resume"; if (subject) body.subject = subject; }
+    if (mode === "resume") { body.mode = "resume"; if (subject) body.subject = subject; body.resumeMode = resumeModeParam ?? "general"; }
     if (fileContent) body.fileContent = fileContent;
     if (imageBase64) { body.imageBase64 = imageBase64; setImageBase64(null); setImagePreview(null); }
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -394,7 +395,7 @@ export default function StudentPage() {
 
   const handleGenerateResume = async () => {
     setShowResume(false);
-    await handleSend("resume", "resume", resumeSubject || undefined);
+    await handleSend("resume", "resume", resumeSubject || undefined, undefined, undefined, undefined, resumeMode);
     setResumeSubject("");
   };
 
@@ -1113,7 +1114,7 @@ export default function StudentPage() {
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-white">Résumé automatique</h2>
-                  <p className="text-gray-500 text-xs">Résumé complet et détaillé de A à Z</p>
+                  <p className="text-gray-500 text-xs">Choisis le niveau de détail</p>
                 </div>
               </div>
               <button onClick={() => setShowResume(false)} className="text-gray-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-800 transition-colors">
@@ -1131,12 +1132,30 @@ export default function StudentPage() {
                     <p className="text-gray-600 text-xs mt-1">PDF ou fichier texte requis</p>
                   </div>
               }
+
+              <div className="flex flex-col gap-2">
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Type de résumé</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setResumeMode("general")}
+                    className={`flex flex-col items-start px-4 py-3 rounded-xl border transition-all ${resumeMode === "general" ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"}`}>
+                    <span className="font-medium text-sm">Général</span>
+                    <span className="text-xs opacity-60 mt-0.5">Grandes idées, vue d'ensemble</span>
+                  </button>
+                  <button onClick={() => setResumeMode("precis")}
+                    className={`flex flex-col items-start px-4 py-3 rounded-xl border transition-all ${resumeMode === "precis" ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"}`}>
+                    <span className="font-medium text-sm">Précis</span>
+                    <span className="text-xs opacity-60 mt-0.5">Tous les détails, exhaustif</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Sujet précis (optionnel)</label>
                 <input value={resumeSubject} onChange={(e) => setResumeSubject(e.target.value)}
                   placeholder="Ex: la méiose, le chapitre 3, les allèles…"
                   className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
               </div>
+
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setShowResume(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
                 <button onClick={handleGenerateResume} disabled={!currentId || !fileName}

@@ -5,7 +5,7 @@ const client = new OpenAI({
 });
 
 export async function POST(request: Request) {
-  const { messages, mode, subject, numQuestions, fileContent, imageBase64, difficulty, questionType, studentAnswer, question } = await request.json();
+  const { messages, mode, subject, numQuestions, fileContent, imageBase64, difficulty, questionType, studentAnswer, question, resumeMode } = await request.json();
 
   let systemPrompt = "Tu es Revisio IA, un assistant scolaire. Reponds toujours en francais. Explique simplement et etape par etape.";
 
@@ -124,45 +124,70 @@ Regles importantes :
 
   if (mode === "resume") {
     const base = fileContent
-      ? subject
-        ? `la partie sur "${subject}" dans le contenu fourni`
-        : "le contenu complet des notes fourni"
+      ? subject ? `la partie sur "${subject}" dans le contenu fourni` : "le contenu complet des notes fourni"
       : subject || "mes notes";
 
-    systemPrompt = `Tu es Revisio IA, un assistant scolaire quebecois expert. Fais un resume EXTREMEMENT DETAILLE et COMPLET de : ${base}.
+    const isDetailed = resumeMode === "precis";
 
-${fileContent ? `Voici le contenu COMPLET. Tu dois couvrir CHAQUE partie, CHAQUE concept, CHAQUE detail important sans rien omettre:\n\n${fileContent}` : ""}
+    systemPrompt = isDetailed
+      ? `Tu es Revisio IA, un assistant scolaire quebecois expert. Fais un resume EXTREMEMENT PRECIS et DETAILLE de : ${base}.
 
-${subject ? `FOCUS SPECIAL : L'eleve veut un resume particulierement detaille sur : "${subject}". Priorise ce sujet tout en couvrant le reste.` : ""}
+${fileContent ? `Voici le contenu COMPLET. Couvre CHAQUE concept, CHAQUE chiffre, CHAQUE detail sans rien omettre:\n\n${fileContent}` : ""}
+${subject ? `\nFOCUS : L'eleve veut un resume particulierement detaille sur : "${subject}".` : ""}
 
-IMPORTANT : Ce resume doit etre exhaustif. L'etudiant doit pouvoir etudier UNIQUEMENT avec ce resume sans avoir besoin de relire le document original.
+IMPORTANT : Ce resume doit etre exhaustif. L'etudiant doit pouvoir etudier UNIQUEMENT avec ce resume.
 
-Format exact a respecter :
+Format exact :
 
-RESUME COMPLET : [TITRE EN MAJUSCULES]
+RESUME PRECIS : [TITRE EN MAJUSCULES]
 
 INTRODUCTION :
-[3-4 phrases de contexte general qui expliquent le sujet et son importance]
+[3-4 phrases de contexte general]
 
-[Pour CHAQUE section ou concept du document, cree un bloc comme ceci :]
+[Pour CHAQUE section ou concept du document, cree un bloc :]
 
 [TITRE DE LA SECTION EN MAJUSCULES] :
-[Explication complete et detaillee en 4-6 phrases. Inclure tous les details importants, chiffres, definitions, exemples concrets, mecanismes expliques etape par etape. Ne pas simplifier — etre precis et complet.]
+[Explication complete et detaillee en 4-6 phrases. Inclure tous les details importants, chiffres, definitions, exemples concrets, mecanismes expliques etape par etape.]
 
-[Repete ce bloc pour CHAQUE concept important du document]
+[Repete ce bloc pour CHAQUE concept important]
 
 POINTS ESSENTIELS A RETENIR :
-- [Point 1 avec detail]
-- [Point 2 avec detail]
-- [Point 3 avec detail]
-- [Point 4 avec detail]
-- [Point 5 avec detail]
+- [Point 1 avec detail precis]
+- [Point 2 avec detail precis]
+- [Point 3 avec detail precis]
 - [Autant de points que necessaire]
 
 CONCLUSION :
-[3-4 phrases de synthese qui relient tous les concepts entre eux]
+[3-4 phrases de synthese qui relient tous les concepts]
 
-Ecris TOUT en francais. Sois le plus complet et detaille possible. Ne raccourcis rien.`;
+Ecris en francais. Sois exhaustif. Ne raccourcis rien.`
+      : `Tu es Revisio IA, un assistant scolaire quebecois expert. Fais un resume GENERAL et CLAIR de : ${base}.
+
+${fileContent ? `Voici le contenu a resumer. Couvre les grandes idees principales:\n\n${fileContent}` : ""}
+${subject ? `\nFOCUS : Resume particulierement la partie sur : "${subject}".` : ""}
+
+Format exact :
+
+RESUME GENERAL : [TITRE EN MAJUSCULES]
+
+INTRODUCTION :
+[2-3 phrases de contexte general qui expliquent le sujet]
+
+GRANDES IDEES :
+1. [Idee principale 1 — 2-3 phrases simples et claires]
+2. [Idee principale 2 — 2-3 phrases simples et claires]
+3. [Idee principale 3 — 2-3 phrases simples et claires]
+4. [Idee principale 4 — 2-3 phrases simples et claires]
+5. [Idee principale 5 — 2-3 phrases simples et claires]
+[Ajoute d'autres idees si necessaire]
+
+A RETENIR :
+[3-4 phrases qui resument l'essentiel du document]
+
+CONCLUSION :
+[2-3 phrases de synthese]
+
+Ecris en francais. Sois clair et accessible.`;
   }
 
   let apiMessages: any[];
@@ -181,7 +206,7 @@ Ecris TOUT en francais. Sois le plus complet et detaille possible. Ne raccourcis
   } else if (mode === "quiz" || mode === "fiche" || mode === "resume") {
     apiMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: mode === "quiz" ? "Genere un quiz" : mode === "fiche" ? "Genere une fiche de revision" : "Genere un resume complet et detaille" },
+      { role: "user", content: mode === "quiz" ? "Genere un quiz" : mode === "fiche" ? "Genere une fiche de revision" : "Genere un resume" },
     ];
   } else {
     apiMessages = [
