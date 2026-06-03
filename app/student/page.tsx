@@ -27,6 +27,15 @@ type QuizCorrection = {
   commentaire: string;
   correction: string;
 };
+type FicheData = {
+  titre: string;
+  sujet: string;
+  definition: string;
+  points_cles: { titre: string; contenu: string }[];
+  a_retenir: string;
+  mots_cles: string[];
+  questions_revision: { question: string; reponse: string }[];
+};
 
 const FREE_LIMIT = 50;
 
@@ -64,6 +73,7 @@ export default function StudentPage() {
   const [devCorrecting, setDevCorrecting] = useState<boolean[]>([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [revealedAnswers, setRevealedAnswers] = useState<boolean[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
   const quizFileRef = useRef<HTMLInputElement>(null);
@@ -255,12 +265,7 @@ export default function StudentPage() {
       setDevCorrections(newCorrections);
       if (currentId && activeQuiz) {
         await updateDoc(doc(db, "conversations", currentId), {
-          quizData: activeQuiz,
-          quizAnswers: quizAnswers,
-          devAnswers: devAnswers,
-          devCorrections: newCorrections,
-          quizSubmitted,
-          quizDifficulty: activeQuizDifficulty,
+          quizData: activeQuiz, quizAnswers, devAnswers, devCorrections: newCorrections, quizSubmitted, quizDifficulty: activeQuizDifficulty,
         });
       }
     } catch {}
@@ -310,15 +315,26 @@ export default function StudentPage() {
         setMessages(final); setLoading(false);
         const title = userMsg.content.slice(0, 40);
         await updateDoc(doc(db, "conversations", currentId), {
-          messages: final,
-          title,
-          quizData: parsed,
+          messages: final, title, quizData: parsed,
           quizAnswers: new Array(parsed.length).fill(null),
           devAnswers: new Array(parsed.length).fill(""),
           devCorrections: new Array(parsed.length).fill(null),
-          quizSubmitted: false,
-          quizDifficulty: difficulty ?? "general",
+          quizSubmitted: false, quizDifficulty: difficulty ?? "general",
         });
+        setConversations((prev) => prev.map((c) => c.id === currentId ? { ...c, messages: final, title } : c));
+        return;
+      } catch {}
+    }
+
+    if (mode === "fiche") {
+      try {
+        const clean = reply.replace(/```json|```/g, "").trim();
+        const fiche: FicheData = JSON.parse(clean);
+        const aiMsg: Message = { role: "assistant", content: "__FICHE__" + JSON.stringify(fiche) };
+        const final = [...updated, aiMsg];
+        setMessages(final); setLoading(false);
+        const title = userMsg.content.slice(0, 40);
+        await updateDoc(doc(db, "conversations", currentId), { messages: final, title });
         setConversations((prev) => prev.map((c) => c.id === currentId ? { ...c, messages: final, title } : c));
         return;
       } catch {}
@@ -362,7 +378,7 @@ export default function StudentPage() {
   const handleGenerateFiche = async () => {
     if (!currentId) return;
     setShowFiche(false);
-    await handleSend("fiche", "fiche", ficheSubject || "mes notes");
+    await handleSend("fiche", "fiche", ficheSubject || (fileContent ? "le contenu du fichier fourni" : "mes notes"));
     setFicheSubject("");
   };
 
@@ -379,11 +395,7 @@ export default function StudentPage() {
   const handleQuizSubmit = async () => {
     setQuizSubmitted(true);
     if (currentId && activeQuiz) {
-      await updateDoc(doc(db, "conversations", currentId), {
-        quizAnswers,
-        devAnswers,
-        quizSubmitted: true,
-      });
+      await updateDoc(doc(db, "conversations", currentId), { quizAnswers, devAnswers, quizSubmitted: true });
     }
   };
 
@@ -392,20 +404,129 @@ export default function StudentPage() {
   const initials = userEmail ? userEmail[0].toUpperCase() : "?";
   const remaining = FREE_LIMIT - messageCount;
 
-  const difficultyLabels: Record<string, string> = {
-    general: "Général",
-    avance: "Avancé",
-    precis: "Précis",
-    examen: "Examen",
-  };
+  const difficultyLabels: Record<string, string> = { general: "Général", avance: "Avancé", precis: "Précis", examen: "Examen" };
+  const getNoteColor = (note: number) => note >= 80 ? "text-green-400" : note >= 60 ? "text-yellow-400" : "text-red-400";
 
-  const getNoteColor = (note: number) => {
-    if (note >= 80) return "text-green-400";
-    if (note >= 60) return "text-yellow-400";
-    return "text-red-400";
-  };
+  const renderFiche = (fiche: FicheData, i: number) => (
+    <div key={i} className="flex gap-3 flex-row">
+      <div className="w-7 h-7 rounded-full bg-[#1a1a2e] border border-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+      </div>
+      <div className="flex-1 max-w-2xl bg-[#1a1a2e] border border-gray-800 rounded-2xl rounded-tl-sm overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600/30 to-blue-800/20 px-5 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2 mb-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Fiche de révision</span>
+          </div>
+          <h2 className="text-white font-bold text-lg">{fiche.titre}</h2>
+        </div>
+
+        <div className="p-5 flex flex-col gap-5">
+          {/* Définition */}
+          <div className="bg-blue-900/15 border border-blue-800/40 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center flex-shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <p className="text-blue-300 text-xs font-semibold uppercase tracking-wider">Définition</p>
+            </div>
+            <p className="text-gray-200 text-sm leading-relaxed">{fiche.definition}</p>
+          </div>
+
+          {/* Points clés */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-5 h-5 bg-green-600 rounded-md flex items-center justify-center flex-shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <p className="text-green-300 text-xs font-semibold uppercase tracking-wider">Points clés</p>
+            </div>
+            {fiche.points_cles.map((p, pi) => (
+              <div key={pi} className="bg-[#0f0f1a] border border-gray-700 rounded-xl p-3 flex gap-3">
+                <span className="w-5 h-5 bg-green-900/50 border border-green-700/50 rounded-full flex items-center justify-center text-green-300 text-xs font-bold flex-shrink-0 mt-0.5">{pi + 1}</span>
+                <div>
+                  <p className="text-white text-sm font-medium">{p.titre}</p>
+                  <p className="text-gray-400 text-xs mt-0.5 leading-relaxed">{p.contenu}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* À retenir */}
+          <div className="bg-yellow-900/15 border border-yellow-700/40 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-5 h-5 bg-yellow-600 rounded-md flex items-center justify-center flex-shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              </div>
+              <p className="text-yellow-300 text-xs font-semibold uppercase tracking-wider">À retenir</p>
+            </div>
+            <p className="text-gray-200 text-sm leading-relaxed">{fiche.a_retenir}</p>
+          </div>
+
+          {/* Mots clés */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center flex-shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              </div>
+              <p className="text-purple-300 text-xs font-semibold uppercase tracking-wider">Mots clés</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {fiche.mots_cles.map((mot, mi) => (
+                <span key={mi} className="px-2.5 py-1 bg-purple-900/30 border border-purple-700/50 rounded-lg text-purple-200 text-xs font-medium">{mot}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Questions de révision */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-5 h-5 bg-orange-600 rounded-md flex items-center justify-center flex-shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <p className="text-orange-300 text-xs font-semibold uppercase tracking-wider">Questions de révision rapide</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {fiche.questions_revision.map((qr, qi) => (
+                <div key={qi} className="bg-[#0f0f1a] border border-gray-700 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => {
+                      const n = [...revealedAnswers];
+                      n[qi] = !n[qi];
+                      setRevealedAnswers(n);
+                    }}
+                    className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-gray-800/50 transition-colors"
+                  >
+                    <p className="text-sm text-gray-200">{qr.question}</p>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`flex-shrink-0 transition-transform ${revealedAnswers[qi] ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  {revealedAnswers[qi] && (
+                    <div className="px-4 pb-3 border-t border-gray-800">
+                      <p className="text-xs text-green-300 mt-2">{qr.reponse}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderMessage = (m: Message, i: number) => {
+    if (m.role === "assistant" && m.content.startsWith("__FICHE__")) {
+      try {
+        const fiche: FicheData = JSON.parse(m.content.replace("__FICHE__", ""));
+        return renderFiche(fiche, i);
+      } catch {
+        return null;
+      }
+    }
+
     if (m.role === "assistant" && m.content === "__QUIZ__" && activeQuiz) {
       return (
         <div key={i} className="flex gap-3 flex-row">
@@ -430,7 +551,6 @@ export default function StudentPage() {
                     </span>
                     <p className="text-sm font-medium text-gray-200">Question {qi + 1} : {q.question}</p>
                   </div>
-
                   {q.type === "qcm" && q.options && (
                     <>
                       <div className="grid grid-cols-2 gap-2">
@@ -461,28 +581,15 @@ export default function StudentPage() {
                       )}
                     </>
                   )}
-
                   {q.type === "dev" && (
                     <div className="flex flex-col gap-2">
-                      <textarea
-                        value={devAnswers[qi] ?? ""}
-                        onChange={(e) => {
-                          const n = [...devAnswers]; n[qi] = e.target.value; setDevAnswers(n);
-                        }}
-                        disabled={!!devCorrections[qi]}
-                        placeholder="Écris ta réponse ici…"
-                        rows={4}
-                        className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors text-white placeholder-gray-600 resize-none disabled:opacity-60"
-                      />
+                      <textarea value={devAnswers[qi] ?? ""} onChange={(e) => { const n = [...devAnswers]; n[qi] = e.target.value; setDevAnswers(n); }}
+                        disabled={!!devCorrections[qi]} placeholder="Écris ta réponse ici…" rows={4}
+                        className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors text-white placeholder-gray-600 resize-none disabled:opacity-60" />
                       {!devCorrections[qi] && (
-                        <button
-                          onClick={() => handleCorrectDevAnswer(qi)}
-                          disabled={!devAnswers[qi]?.trim() || devCorrecting[qi]}
-                          className="self-end bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2"
-                        >
-                          {devCorrecting[qi] ? (
-                            <><div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>Correction en cours…</>
-                          ) : "Corriger ma réponse →"}
+                        <button onClick={() => handleCorrectDevAnswer(qi)} disabled={!devAnswers[qi]?.trim() || devCorrecting[qi]}
+                          className="self-end bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2">
+                          {devCorrecting[qi] ? <><div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>Correction en cours…</> : "Corriger ma réponse →"}
                         </button>
                       )}
                       {devCorrections[qi] && (
@@ -508,20 +615,16 @@ export default function StudentPage() {
                   )}
                 </div>
               ))}
-
               {!quizSubmitted && qcmCount > 0 && (
                 <button onClick={handleQuizSubmit} disabled={activeQuiz.filter(q => q.type === "qcm").some((_, i) => quizAnswers[activeQuiz.indexOf(activeQuiz.filter(q => q.type === "qcm")[i])] === null)}
                   className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2">
                   Soumettre les QCM
                 </button>
               )}
-
               {quizSubmitted && qcmCount > 0 && (
                 <div className="bg-[#0f0f1a] border border-gray-700 rounded-xl p-4 text-center">
                   <p className="text-lg font-bold">{quizScore}/{qcmCount} QCM</p>
-                  <p className="text-gray-400 text-sm mt-0.5">
-                    {quizScore === qcmCount ? "Parfait !" : quizScore >= qcmCount / 2 ? "Bon travail !" : "Continue à réviser !"}
-                  </p>
+                  <p className="text-gray-400 text-sm mt-0.5">{quizScore === qcmCount ? "Parfait !" : quizScore >= qcmCount / 2 ? "Bon travail !" : "Continue à réviser !"}</p>
                 </div>
               )}
             </div>
@@ -548,7 +651,6 @@ export default function StudentPage() {
 
   return (
     <div className="flex h-screen bg-[#0d0d14] text-white" style={{fontFamily: "system-ui, sans-serif"}}>
-
       <aside className="w-64 bg-[#0d0d14] border-r border-gray-800 flex flex-col">
         <div className="p-5 border-b border-gray-800">
           <div className="flex items-center gap-2">
@@ -561,7 +663,6 @@ export default function StudentPage() {
             </div>
           </div>
         </div>
-
         <div className="p-3 flex flex-col gap-1 border-b border-gray-800">
           <button onClick={() => router.push("/student/flashcards")} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -572,14 +673,12 @@ export default function StudentPage() {
             Profil
           </button>
         </div>
-
         <div className="p-3">
           <button onClick={handleNewChat} className="w-full bg-blue-600 hover:bg-blue-500 transition-colors rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nouveau chat
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-0.5">
           {conversations.length === 0 && <p className="text-gray-600 text-xs text-center mt-6">Aucune conversation</p>}
           {conversations.map((c) => (
@@ -604,7 +703,6 @@ export default function StudentPage() {
             </div>
           ))}
         </div>
-
         {!isPro && (
           <div className="px-3 pb-2">
             <div className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
@@ -619,7 +717,6 @@ export default function StudentPage() {
             </div>
           </div>
         )}
-
         <div className="p-3 border-t border-gray-800 flex items-center gap-3">
           <div className="w-7 h-7 rounded-full bg-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">{initials}</div>
           <div className="flex-1 min-w-0">
@@ -795,14 +892,12 @@ export default function StudentPage() {
                   <button onClick={() => { setFileContent(null); setFileName(null); setImageBase64(null); }} className="text-gray-500 hover:text-red-400 text-xs transition-colors">Retirer</button>
                 </div>
               )}
-
               <div className="flex flex-col gap-1.5">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">{fileName ? "Sujet précis (optionnel)" : "Sujet"}</label>
                 <input value={quizSubject} onChange={(e) => setQuizSubject(e.target.value)}
                   placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la 2e guerre mondiale…"}
                   className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
               </div>
-
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Type de questions</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -812,16 +907,13 @@ export default function StudentPage() {
                     { id: "mix", label: "Mix", desc: "Les deux" },
                   ].map((t) => (
                     <button key={t.id} onClick={() => setQuizType(t.id)}
-                      className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${
-                        quizType === t.id ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"
-                      }`}>
+                      className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${quizType === t.id ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"}`}>
                       <span className="font-medium text-xs">{t.label}</span>
                       <span className="text-xs opacity-60 mt-0.5">{t.desc}</span>
                     </button>
                   ))}
                 </div>
               </div>
-
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Niveau de difficulté</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -832,16 +924,13 @@ export default function StudentPage() {
                     { id: "examen", label: "Examen", desc: "Pièges & analyse" },
                   ].map((d) => (
                     <button key={d.id} onClick={() => setQuizDifficulty(d.id)}
-                      className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${
-                        quizDifficulty === d.id ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"
-                      }`}>
+                      className={`flex flex-col items-start px-3 py-2.5 rounded-xl text-sm border transition-all ${quizDifficulty === d.id ? "border-blue-500 bg-blue-600/20 text-white" : "border-gray-700 bg-[#1a1a2e] text-gray-400 hover:border-gray-500 hover:text-white"}`}>
                       <span className="font-medium text-xs">{d.label}</span>
                       <span className="text-xs opacity-60 mt-0.5">{d.desc}</span>
                     </button>
                   ))}
                 </div>
               </div>
-
               <div className="flex flex-col gap-2">
                 <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Nombre de questions</label>
                 <div className="grid grid-cols-4 gap-2">
@@ -853,7 +942,6 @@ export default function StudentPage() {
                   ))}
                 </div>
               </div>
-
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setShowQuiz(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
                 <button onClick={handleGenerateQuiz} disabled={!currentId || pdfLoading}
@@ -869,23 +957,59 @@ export default function StudentPage() {
       )}
 
       {showFiche && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Créer une fiche de révision</h2>
-              <button onClick={() => setShowFiche(false)} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-700">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f0f1a] border border-gray-700/50 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/10 border-b border-gray-800 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-white">Créer une fiche de révision</h2>
+                  <p className="text-gray-500 text-xs">Fiche structurée avec points clés et questions</p>
+                </div>
+              </div>
+              <button onClick={() => setShowFiche(false)} className="text-gray-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-800 transition-colors">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            {fileName && <div className="text-blue-300 text-xs bg-blue-950 border border-blue-800 px-3 py-2 rounded-lg">Basé sur : {fileName}</div>}
-            <input value={ficheSubject} onChange={(e) => setFicheSubject(e.target.value)}
-              placeholder={fileName ? "Sujet précis (optionnel)" : "Matière (ex: la photosynthèse)"}
-              className="bg-[#0f0f1a] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors" />
-            <div className="flex gap-2">
-              <button onClick={() => setShowFiche(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
-              <button onClick={handleGenerateFiche} disabled={!currentId} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">Créer</button>
+            <div className="p-6 flex flex-col gap-4">
+              {!fileName ? (
+                <div className="border-2 border-dashed border-gray-700 rounded-2xl p-4 flex flex-col items-center gap-3 bg-[#1a1a2e]/40">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-300 font-medium">Uploade tes notes (optionnel)</p>
+                    <p className="text-gray-500 text-xs mt-0.5">PDF ou fichier texte</p>
+                  </div>
+                  <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl px-4 py-2 text-xs font-medium text-gray-300 transition-colors">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    PDF / Fichier
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-blue-950/50 border border-blue-800/50 px-4 py-3 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span className="text-blue-300 text-xs font-medium">{fileName} ✓</span>
+                  </div>
+                  <button onClick={() => { setFileContent(null); setFileName(null); }} className="text-gray-500 hover:text-red-400 text-xs">Retirer</button>
+                </div>
+              )}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">{fileName ? "Sujet précis (optionnel)" : "Sujet"}</label>
+                <input value={ficheSubject} onChange={(e) => setFicheSubject(e.target.value)}
+                  placeholder={fileName ? "Précise un aspect particulier…" : "Ex: la photosynthèse, la Révolution française…"}
+                  className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setShowFiche(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
+                <button onClick={handleGenerateFiche} disabled={!currentId}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Créer la fiche
+                </button>
+              </div>
+              {!currentId && <p className="text-red-400 text-xs text-center -mt-2">Crée un nouveau chat d'abord</p>}
             </div>
-            {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
           </div>
         </div>
       )}
