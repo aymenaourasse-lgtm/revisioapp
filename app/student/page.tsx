@@ -453,26 +453,16 @@ export default function StudentPage() {
           <h2 className="text-white font-bold text-lg">{fiche.titre}</h2>
         </div>
         <div className="p-5 flex flex-col gap-5">
-          <div className="bg-blue-900/15 border border-blue-800/40 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-5 h-5 bg-blue-600 rounded-md flex items-center justify-center flex-shrink-0">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              </div>
-              <p className="text-blue-300 text-xs font-semibold uppercase tracking-wider">Définition</p>
-            </div>
+          <div className="border border-gray-700 rounded-xl p-4">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Définition</p>
             <p className="text-gray-200 text-sm leading-relaxed">{fiche.definition}</p>
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-5 h-5 bg-green-600 rounded-md flex items-center justify-center flex-shrink-0">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <p className="text-green-300 text-xs font-semibold uppercase tracking-wider">Points clés</p>
-            </div>
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Points clés</p>
             {fiche.points_cles.map((p, pi) => (
               <div key={pi} className="bg-[#0f0f1a] border border-gray-700 rounded-xl p-3 flex gap-3">
-                <span className="w-5 h-5 bg-green-900/50 border border-green-700/50 rounded-full flex items-center justify-center text-green-300 text-xs font-bold flex-shrink-0 mt-0.5">{pi + 1}</span>
+                <span className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center text-gray-300 text-xs font-bold flex-shrink-0 mt-0.5">{pi + 1}</span>
                 <div>
                   <p className="text-white text-sm font-medium">{p.titre}</p>
                   <p className="text-gray-400 text-xs mt-0.5 leading-relaxed">{p.contenu}</p>
@@ -481,38 +471,23 @@ export default function StudentPage() {
             ))}
           </div>
 
-          <div className="bg-yellow-900/15 border border-yellow-700/40 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-5 h-5 bg-yellow-600 rounded-md flex items-center justify-center flex-shrink-0">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              </div>
-              <p className="text-yellow-300 text-xs font-semibold uppercase tracking-wider">À retenir</p>
-            </div>
+          <div className="border border-gray-700 rounded-xl p-4">
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">À retenir</p>
             <p className="text-gray-200 text-sm leading-relaxed">{fiche.a_retenir}</p>
           </div>
 
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center flex-shrink-0">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-              </div>
-              <p className="text-purple-300 text-xs font-semibold uppercase tracking-wider">Mots clés</p>
-            </div>
+            <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Mots clés</p>
             <div className="flex flex-wrap gap-2">
               {fiche.mots_cles.map((mot, mi) => (
-                <span key={mi} className="px-2.5 py-1 bg-purple-900/30 border border-purple-700/50 rounded-lg text-purple-200 text-xs font-medium">{mot}</span>
+                <span key={mi} className="px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 text-xs font-medium">{mot}</span>
               ))}
             </div>
           </div>
 
           {fiche.questions_revision?.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-5 h-5 bg-orange-600 rounded-md flex items-center justify-center flex-shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                </div>
-                <p className="text-orange-300 text-xs font-semibold uppercase tracking-wider">Questions de révision rapide</p>
-              </div>
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Questions de révision</p>
               <div className="flex flex-col gap-2">
                 {fiche.questions_revision.map((qr, qi) => (
                   <div key={qi} className="bg-[#0f0f1a] border border-gray-700 rounded-xl overflow-hidden">
@@ -523,7 +498,7 @@ export default function StudentPage() {
                     </button>
                     {revealedAnswers[qi] && (
                       <div className="px-4 pb-3 border-t border-gray-800">
-                        <p className="text-xs text-green-300 mt-2">{qr.reponse}</p>
+                        <p className="text-xs text-gray-300 mt-2">{qr.reponse}</p>
                       </div>
                     )}
                   </div>
