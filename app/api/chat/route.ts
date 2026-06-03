@@ -41,29 +41,24 @@ Format exact :
       ],
       max_tokens: 1000,
     });
-
     return Response.json({ reply: res.choices[0].message.content });
   }
 
   if (mode === "quiz") {
     const base = fileContent ? "le contenu des notes fourni" : subject;
-
     const difficultyInstructions: Record<string, string> = {
       general: `NIVEAU GENERAL : Questions simples sur les concepts de base. Vocabulaire accessible.`,
       avance: `NIVEAU AVANCE : Questions sur des concepts plus approfondis. Liens entre les idees.`,
       precis: `NIVEAU PRECIS : Questions tres specifiques avec des details precis (chiffres, dates, mecanismes).`,
       examen: `NIVEAU EXAMEN : Questions complexes comme un vrai examen. Pieges subtils. Comprehension profonde.`,
     };
-
     const typeInstructions: Record<string, string> = {
       qcm: `Toutes les questions sont de type QCM avec 4 choix de reponse. Le champ "type" vaut "qcm".`,
       developpement: `Toutes les questions sont de type developpement (reponse longue a ecrire). Le champ "type" vaut "dev". Pas de champ "options" ni "correct". Inclure un champ "reponse_ideale" avec la reponse complete attendue.`,
-      mix: `Alterne entre QCM et developpement. Environ la moitie des questions de chaque type selon le niveau. Pour le niveau general/avance, plus de QCM. Pour precis/examen, plus de developpement.`,
+      mix: `Alterne entre QCM et developpement. Environ la moitie des questions de chaque type selon le niveau.`,
     };
-
     const diffLevel = difficultyInstructions[difficulty ?? "general"];
     const typeLevel = typeInstructions[questionType ?? "qcm"];
-
     systemPrompt = `Tu es Revisio IA. Genere un quiz de ${numQuestions} questions sur : ${base}.
 
 ${diffLevel}
@@ -92,53 +87,75 @@ Genere exactement ${numQuestions} questions sous forme de tableau JSON.`;
 
   if (mode === "fiche") {
     const base = fileContent ? "le contenu des notes fourni" : subject;
-    systemPrompt = `Tu es Revisio IA. Genere une fiche de revision complete sur : ${base}.
+    systemPrompt = `Tu es Revisio IA, un assistant scolaire quebecois expert. Genere une fiche de revision claire, precise et adaptee aux etudiants du secondaire, cegep ou universite sur : ${base}.
+${fileContent ? `Base-toi UNIQUEMENT sur ce contenu:\n\n${fileContent}` : ""}
 
+Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks.
 Format exact :
+{
+  "titre": "TITRE COURT EN MAJUSCULES",
+  "sujet": "Nom du sujet",
+  "definition": "Definition claire et simple en 2-3 phrases. Utilise un langage accessible mais precis. Si possible, donne un exemple concret dans la definition.",
+  "points_cles": [
+    { "titre": "Nom du concept", "contenu": "Explication detaillee en 2-3 phrases simples. Inclure un exemple concret ou un chiffre precis si disponible." },
+    { "titre": "Nom du concept", "contenu": "Explication detaillee en 2-3 phrases simples. Inclure un exemple concret ou un chiffre precis si disponible." },
+    { "titre": "Nom du concept", "contenu": "Explication detaillee en 2-3 phrases simples. Inclure un exemple concret ou un chiffre precis si disponible." },
+    { "titre": "Nom du concept", "contenu": "Explication detaillee en 2-3 phrases simples. Inclure un exemple concret ou un chiffre precis si disponible." },
+    { "titre": "Nom du concept", "contenu": "Explication detaillee en 2-3 phrases simples. Inclure un exemple concret ou un chiffre precis si disponible." }
+  ],
+  "a_retenir": "3-4 phrases essentielles qui resument les points les plus importants. Ce que l'etudiant DOIT absolument savoir pour un examen.",
+  "mots_cles": ["terme1", "terme2", "terme3", "terme4", "terme5", "terme6"],
+  "questions_revision": [
+    { "question": "Question directe et claire ?", "reponse": "Reponse courte, precise et complete en 1-2 phrases." },
+    { "question": "Question directe et claire ?", "reponse": "Reponse courte, precise et complete en 1-2 phrases." },
+    { "question": "Question directe et claire ?", "reponse": "Reponse courte, precise et complete en 1-2 phrases." },
+    { "question": "Question directe et claire ?", "reponse": "Reponse courte, precise et complete en 1-2 phrases." },
+    { "question": "Question directe et claire ?", "reponse": "Reponse courte, precise et complete en 1-2 phrases." }
+  ]
+}
 
-FICHE DE REVISION : [TITRE EN MAJUSCULES]
-
-DEFINITION :
-[definition claire en 2-3 phrases]
-
-POINTS CLES :
-- [point 1]
-- [point 2]
-- [point 3]
-- [point 4]
-- [point 5]
-
-A RETENIR :
-[resume de 3-4 phrases essentielles]
-
-MOTS CLES :
-[mot1], [mot2], [mot3], [mot4], [mot5]
-
-Genere uniquement la fiche, rien d'autre.`;
+Regles importantes :
+- Utilise un vocabulaire adapte aux etudiants (secondaire/cegep/universite)
+- Chaque point cle doit avoir un titre court et un contenu clair
+- Les questions de revision doivent couvrir les points les plus importants
+- Si le contenu fourni contient des chiffres ou formules, inclus-les precisement
+- Ecris toujours en francais quebecois standard`;
   }
 
   if (mode === "resume") {
     const base = fileContent ? "le contenu des notes fourni" : "mes notes";
-    systemPrompt = `Tu es Revisio IA. Fais un resume structure et detaille de : ${base}.
+    systemPrompt = `Tu es Revisio IA, un assistant scolaire quebecois expert. Fais un resume EXTREMEMENT DETAILLE et COMPLET de : ${base}.
 
-Format exact :
+${fileContent ? `Voici le contenu COMPLET a resumer. Tu dois couvrir CHAQUE partie, CHAQUE concept, CHAQUE detail important sans rien omettre:\n\n${fileContent}` : ""}
 
-RESUME : [TITRE EN MAJUSCULES]
+IMPORTANT : Ce resume doit etre exhaustif. L'etudiant doit pouvoir etudier UNIQUEMENT avec ce resume sans avoir besoin de relire le document original.
+
+Format exact a respecter :
+
+RESUME COMPLET : [TITRE EN MAJUSCULES]
 
 INTRODUCTION :
-[2-3 phrases de contexte]
+[3-4 phrases de contexte general qui expliquent le sujet et son importance]
 
-POINTS PRINCIPAUX :
-1. [point 1]
-2. [point 2]
-3. [point 3]
-4. [point 4]
-5. [point 5]
+[Pour CHAQUE section ou concept du document, cree un bloc comme ceci :]
+
+[TITRE DE LA SECTION EN MAJUSCULES] :
+[Explication complete et detaillee en 4-6 phrases. Inclure tous les details importants, chiffres, definitions, exemples concrets, mecanismes expliques etape par etape. Ne pas simplifier — etre precis et complet.]
+
+[Repete ce bloc pour CHAQUE concept important du document]
+
+POINTS ESSENTIELS A RETENIR :
+- [Point 1 avec detail]
+- [Point 2 avec detail]
+- [Point 3 avec detail]
+- [Point 4 avec detail]
+- [Point 5 avec detail]
+- [Autant de points que necessaire]
 
 CONCLUSION :
-[2-3 phrases de synthese]
+[3-4 phrases de synthese qui relient tous les concepts entre eux]
 
-Genere uniquement le resume, rien d'autre.`;
+Ecris TOUT en francais. Sois le plus complet et detaille possible. Ne raccourcis rien.`;
   }
 
   let apiMessages: any[];
@@ -157,7 +174,7 @@ Genere uniquement le resume, rien d'autre.`;
   } else if (mode === "quiz" || mode === "fiche" || mode === "resume") {
     apiMessages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: mode === "quiz" ? "Genere un quiz" : mode === "fiche" ? "Genere une fiche de revision" : "Genere un resume" },
+      { role: "user", content: mode === "quiz" ? "Genere un quiz" : mode === "fiche" ? "Genere une fiche de revision" : "Genere un resume complet et detaille" },
     ];
   } else {
     apiMessages = [
@@ -169,7 +186,7 @@ Genere uniquement le resume, rien d'autre.`;
   const response = await client.chat.completions.create({
     model: "gpt-4.1-mini",
     messages: apiMessages,
-    max_tokens: 2000,
+    max_tokens: 4000,
   });
 
   return Response.json({
