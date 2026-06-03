@@ -54,6 +54,7 @@ export default function StudentPage() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [showFiche, setShowFiche] = useState(false);
   const [showResume, setShowResume] = useState(false);
+  const [resumeSubject, setResumeSubject] = useState("");
   const [quizSubject, setQuizSubject] = useState("");
   const [quizNum, setQuizNum] = useState("5");
   const [quizDifficulty, setQuizDifficulty] = useState("general");
@@ -292,7 +293,7 @@ export default function StudentPage() {
       role: "user",
       content: mode === "quiz" ? `Quiz sur : ${subject ?? "mes notes"} (${numQuestions} questions)`
         : mode === "fiche" ? `Fiche de révision : ${subject ?? "mes notes"}`
-        : mode === "resume" ? `Résumé du document : ${fileName ?? "mes notes"}`
+        : mode === "resume" ? `Résumé${subject ? ` — ${subject}` : ""} : ${fileName ?? "mes notes"}`
         : imageBase64 && !text.trim() ? "Image envoyée — analyse cette image"
         : text,
     };
@@ -302,7 +303,7 @@ export default function StudentPage() {
     const body: any = { messages: updated };
     if (mode === "quiz") { body.mode = "quiz"; body.subject = subject; body.numQuestions = numQuestions; body.difficulty = difficulty; body.questionType = questionType; }
     if (mode === "fiche") { body.mode = "fiche"; body.subject = subject; }
-    if (mode === "resume") { body.mode = "resume"; }
+    if (mode === "resume") { body.mode = "resume"; if (subject) body.subject = subject; }
     if (fileContent) body.fileContent = fileContent;
     if (imageBase64) { body.imageBase64 = imageBase64; setImageBase64(null); setImagePreview(null); }
     const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -393,7 +394,8 @@ export default function StudentPage() {
 
   const handleGenerateResume = async () => {
     setShowResume(false);
-    await handleSend("resume", "resume");
+    await handleSend("resume", "resume", resumeSubject || undefined);
+    setResumeSubject("");
   };
 
   const handleSaveFicheManuelle = async () => {
@@ -445,7 +447,7 @@ export default function StudentPage() {
         </div>
       </div>
       <div className="flex-1 max-w-2xl bg-[#1a1a2e] border border-gray-800 rounded-2xl rounded-tl-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600/30 to-blue-800/20 px-5 py-4 border-b border-gray-800">
+        <div className="bg-gradient-to-r from-blue-600/20 to-transparent px-5 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2 mb-1">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Fiche de révision</span>
@@ -457,7 +459,6 @@ export default function StudentPage() {
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Définition</p>
             <p className="text-gray-200 text-sm leading-relaxed">{fiche.definition}</p>
           </div>
-
           <div className="flex flex-col gap-2">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Points clés</p>
             {fiche.points_cles.map((p, pi) => (
@@ -470,12 +471,10 @@ export default function StudentPage() {
               </div>
             ))}
           </div>
-
           <div className="border border-gray-700 rounded-xl p-4">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">À retenir</p>
             <p className="text-gray-200 text-sm leading-relaxed">{fiche.a_retenir}</p>
           </div>
-
           <div>
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Mots clés</p>
             <div className="flex flex-wrap gap-2">
@@ -484,7 +483,6 @@ export default function StudentPage() {
               ))}
             </div>
           </div>
-
           {fiche.questions_revision?.length > 0 && (
             <div>
               <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Questions de révision</p>
@@ -965,7 +963,6 @@ export default function StudentPage() {
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-
             <div className="px-6 pt-5 flex-shrink-0">
               <div className="flex gap-2 bg-[#1a1a2e] border border-gray-700 rounded-xl p-1">
                 <button onClick={() => setFicheMode("ia")}
@@ -980,7 +977,6 @@ export default function StudentPage() {
                 </button>
               </div>
             </div>
-
             <div className="overflow-y-auto flex-1 p-6">
               {ficheMode === "ia" ? (
                 <div className="flex flex-col gap-4">
@@ -1043,7 +1039,7 @@ export default function StudentPage() {
                     {ficheManuelle.points_cles.map((p, i) => (
                       <div key={i} className="bg-[#1a1a2e] border border-gray-700 rounded-xl p-3 flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="w-5 h-5 bg-green-900/50 border border-green-700/50 rounded-full flex items-center justify-center text-green-300 text-xs font-bold flex-shrink-0">{i + 1}</span>
+                          <span className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center text-gray-300 text-xs font-bold flex-shrink-0">{i + 1}</span>
                           <input value={p.titre} onChange={(e) => { const n = [...ficheManuelle.points_cles]; n[i].titre = e.target.value; setFicheManuelle(prev => ({ ...prev, points_cles: n })); }}
                             placeholder="Titre du point"
                             className="flex-1 bg-transparent text-sm outline-none text-white placeholder-gray-600" />
@@ -1108,23 +1104,49 @@ export default function StudentPage() {
       )}
 
       {showResume && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-[#111827] border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Résumé automatique</h2>
-              <button onClick={() => setShowResume(false)} className="text-gray-500 hover:text-white w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-700">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f0f1a] border border-gray-700/50 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/10 border-b border-gray-800 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="11" y2="18"/></svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-white">Résumé automatique</h2>
+                  <p className="text-gray-500 text-xs">Résumé complet et détaillé de A à Z</p>
+                </div>
+              </div>
+              <button onClick={() => setShowResume(false)} className="text-gray-500 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-800 transition-colors">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            {fileName
-              ? <div className="text-blue-300 text-xs bg-blue-950 border border-blue-800 px-3 py-2 rounded-lg">Basé sur : {fileName}</div>
-              : <p className="text-gray-400 text-sm">Upload d'abord un fichier avec le bouton 📄, puis clique Résumé.</p>
-            }
-            <div className="flex gap-2">
-              <button onClick={() => setShowResume(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-2.5 text-sm transition-colors">Annuler</button>
-              <button onClick={handleGenerateResume} disabled={!currentId || !fileName} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-xl py-2.5 text-sm font-medium transition-colors">Résumer</button>
+            <div className="p-6 flex flex-col gap-4">
+              {fileName
+                ? <div className="flex items-center gap-2 bg-blue-950/50 border border-blue-800/50 px-4 py-3 rounded-xl">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span className="text-blue-300 text-xs font-medium">{fileName} ✓</span>
+                  </div>
+                : <div className="border-2 border-dashed border-gray-700 rounded-2xl p-4 text-center bg-[#1a1a2e]/40">
+                    <p className="text-gray-400 text-sm">Upload d'abord un fichier avec le bouton</p>
+                    <p className="text-gray-600 text-xs mt-1">PDF ou fichier texte requis</p>
+                  </div>
+              }
+              <div className="flex flex-col gap-1.5">
+                <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Sujet précis (optionnel)</label>
+                <input value={resumeSubject} onChange={(e) => setResumeSubject(e.target.value)}
+                  placeholder="Ex: la méiose, le chapitre 3, les allèles…"
+                  className="bg-[#1a1a2e] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 transition-colors placeholder-gray-600 text-white" />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setShowResume(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-xl py-3 text-sm transition-colors text-gray-300">Annuler</button>
+                <button onClick={handleGenerateResume} disabled={!currentId || !fileName}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="11" y2="18"/></svg>
+                  Résumer
+                </button>
+              </div>
+              {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
             </div>
-            {!currentId && <p className="text-red-400 text-xs text-center">Crée un nouveau chat d'abord</p>}
           </div>
         </div>
       )}

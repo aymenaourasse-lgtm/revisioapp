@@ -123,10 +123,17 @@ Regles importantes :
   }
 
   if (mode === "resume") {
-    const base = fileContent ? "le contenu des notes fourni" : "mes notes";
+    const base = fileContent
+      ? subject
+        ? `la partie sur "${subject}" dans le contenu fourni`
+        : "le contenu complet des notes fourni"
+      : subject || "mes notes";
+
     systemPrompt = `Tu es Revisio IA, un assistant scolaire quebecois expert. Fais un resume EXTREMEMENT DETAILLE et COMPLET de : ${base}.
 
-${fileContent ? `Voici le contenu COMPLET a resumer. Tu dois couvrir CHAQUE partie, CHAQUE concept, CHAQUE detail important sans rien omettre:\n\n${fileContent}` : ""}
+${fileContent ? `Voici le contenu COMPLET. Tu dois couvrir CHAQUE partie, CHAQUE concept, CHAQUE detail important sans rien omettre:\n\n${fileContent}` : ""}
+
+${subject ? `FOCUS SPECIAL : L'eleve veut un resume particulierement detaille sur : "${subject}". Priorise ce sujet tout en couvrant le reste.` : ""}
 
 IMPORTANT : Ce resume doit etre exhaustif. L'etudiant doit pouvoir etudier UNIQUEMENT avec ce resume sans avoir besoin de relire le document original.
 
